@@ -1,0 +1,76 @@
+/* ── Font imports must be FIRST before @import "tailwindcss" ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+/* ── QShield Design System ──────────────────────────────────────────────── */
+
+:root {
+  --font-heading: 'Helvetica Now Display Bold', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --color-text: #192837;
+  --color-accent: #7342E2;
+  --color-login-bg: #F2F2EE;
+
+  /* Risk palette */
+  --color-risk-critical: #ef4444;
+  --color-risk-high: #f97316;
+  --color-risk-medium: #eab308;
+  --color-risk-low: #22c55e;
+  --color-risk-safe: #10b981;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Heading font utility */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Accent colour utilities */
+.text-accent {
+  color: var(--color-accent);
+}
+.bg-accent {
+  background-color: var(--color-accent);
+}
+
+/* Subtle lattice/grid overlay used on hero */
+.hero-grid-overlay {
+  background-image:
+    linear-gradient(rgba(25, 40, 55, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 40, 55, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Vignette overlay */
+.hero-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(10, 12, 16, 0.45) 100%
+  );
+}
+
+/* Scroll-lock when mobile menu is open */
+body.menu-open {
+  overflow: hidden;
+}

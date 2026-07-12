@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+.env
+
+# Backend DB
+backend/qshield.db
+backend/qshield.db-wal
+backend/qshield.db-shm
+backend/tests/test_qshield.db
+backend/tests/test_qshield.db-wal
+backend/tests/test_qshield.db-shm
+
+# Alembic
+backend/alembic/versions/*.py
+
+# Uploads temp
+backend/uploads/
+backend/tmp/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
