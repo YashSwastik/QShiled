@@ -93,6 +93,34 @@
 
 ---
 
+- [x] **Phase E — Quantum Migration Risk Engine** ✅
+  - [x] `app/services/analyzer.py` — QShield Explainable Migration Prioritization Methodology
+    - [x] 6-factor deterministic weighted scoring (no LLM): crypto_vulnerability (30%), confidentiality (20%), business_criticality (20%), external_exposure (15%), migration_complexity (10%), compliance_sensitivity (5%)
+    - [x] Crypto-vulnerability gate: quantum-safe (AES-256, ML-KEM) and classical/legacy (MD5, SHA-1) algorithms suppressed from inflating quantum migration priority; explained in API response
+    - [x] Strict separation: Quantum Migration Risk vs Classical/Legacy Security Risk (two separate fields)
+    - [x] Full explainability: `raw_weighted_sum`, `crypto_vulnerability_gate`, `quantum_migration_score` all exposed
+    - [x] Human-readable factor labels, per-factor rationale, deterministic explanation string
+    - [x] Gate note appended to explanation when suppression > 10 points
+    - [x] FACTOR_LABELS dict for UI rendering
+    - [x] Severity bands: Low (0–34) / Moderate (35–54) / High (55–74) / Critical (75–100)
+    - [x] Migration priority: immediate / near_term / long_term / low
+    - [x] Empty-scan safe: returns score=0.0, severity=Low, summary text
+    - [x] Missing business context: documented neutral defaults, `context_defaulted=True` flag in response
+  - [x] `app/models/risk_assessment.py` — extended: overall_severity, legacy_count, per_finding_scores, top_priority_finding_ids, methodology_version
+  - [x] `app/database.py` — `_safe_migrate_sqlite()`: idempotent ADD COLUMN for new nullable columns (existing DBs never broken)
+  - [x] `app/schemas/risk.py` — FactorScoreSchema (with label), FindingRiskSchema (with raw_weighted_sum, gate), ScanRiskResponse (with methodology, disclaimer, context_defaulted)
+  - [x] `app/routers/risk.py` — real `GET /api/risk?scan_id=` (replaces stub): loads findings + app context, runs analyzer, persists RiskAssessment, returns full response
+  - [x] `app/routers/upload.py` — integrates risk analysis step 6 after scan completion: findings → analyzer → persist RiskAssessment automatically
+  - [x] `app/main.py` — stub `risk_router` replaced with `risk_router_module.router`
+  - [x] `frontend/src/services/riskApi.ts` — typed API client for risk endpoint
+  - [x] `frontend/src/pages/RiskPage.tsx` — Risk Analysis page: score gauge, factor breakdown bars, quantum vs classical/legacy separation, gate transparency panel, per-finding expandable cards, NIST recommendations, app context display, loading/error/empty states
+  - [x] `frontend/src/pages/InventoryPage.tsx` — "Risk Analysis" CTA button in header → `/risk/:scanId`
+  - [x] `frontend/src/App.tsx` — route `/risk/:scanId` wired
+  - [x] `tests/test_analyzer.py` — 54 new tests across 10 test classes
+  - [x] **Verification:** `pytest tests/` — **161/161 passed**; `npm run build` — clean (0 errors)
+
+---
+
 ## Current Status
 
 | Phase | Status | Notes |
@@ -102,8 +130,9 @@
 | Phase B | ✅ Complete | Secure File Ingestion |
 | Phase C | ✅ Complete | Crypto Discovery Engine (107 tests) |
 | Phase D | ✅ Complete | CBOM Inventory UI + API |
-| Phase 4 | 🔴 Pending | Risk Analyzer + Recommender |
+| Phase E | ✅ Complete | Quantum Migration Risk Engine (161 tests) |
 | Phase 5 | 🟡 Partial | Dashboard (placeholder), Upload+Inventory done |
-| Phase 6 | 🔴 Pending | Roadmap + Reports |
-| Phase 7 | 🔴 Pending | PQC demo (bonus) |
-| Phase 8 | 🔴 Pending | Polish |
+| Phase 6 | 🔴 Pending | Migration Recommendations + Roadmap |
+| Phase 7 | 🔴 Pending | Reports |
+| Phase 8 | 🔴 Pending | PQC demo (bonus) |
+| Phase 9 | 🔴 Pending | Polish |

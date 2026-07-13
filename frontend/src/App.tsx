@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import DemoPage from './pages/DemoPage';
 import InventoryPage from './pages/InventoryPage';
 import FindingDetailPage from './pages/FindingDetailPage';
+import RiskPage from './pages/RiskPage';
 
 /**
  * App — root router.
@@ -17,6 +18,7 @@ import FindingDetailPage from './pages/FindingDetailPage';
  *   /upload                         → Secure file upload
  *   /inventory/:scanId              → Crypto Inventory (CBOM)
  *   /inventory/:scanId/finding/:id  → Finding detail
+ *   /risk/:scanId                   → Quantum Migration Risk Analysis
  *   /app/dashboard                  → Dashboard (placeholder)
  *   /demo                           → PQC demo (placeholder)
  */
@@ -57,6 +59,9 @@ export default function App() {
 
         {/* Finding detail */}
         <Route path="/inventory/:scanId/finding/:findingId" element={<FindingDetailPage />} />
+
+        {/* Risk Analysis */}
+        <Route path="/risk/:scanId" element={<RiskPage />} />
 
         {/* Placeholder routes */}
         <Route path="/app/dashboard" element={<Dashboard />} />

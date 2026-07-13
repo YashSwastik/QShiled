@@ -7,8 +7,9 @@ Full pipeline:
   3. Create Scan record (running)
   4. Run Crypto Discovery Engine              (scanner engine)
   5. Persist CryptoFinding records
-  6. Update scan counters and status (completed | failed)
-  7. Return scan metadata
+  6. Run Risk Analysis Engine                 (analyzer service)
+  7. Update scan counters and status (completed | failed)
+  8. Return scan metadata
 
 No files are permanently stored on disk.
 No source files are executed under any circumstances.
@@ -29,6 +30,8 @@ from app.services.scanner.engine import run_scan
 from app.services.scanner.rules import QuantumStatus as RuleQuantumStatus
 from app.models.finding import QuantumStatus as DBQuantumStatus
 from app.models.finding import DetectionMethod as DBDetectionMethod
+from app.services.analyzer import score_scan, FindingInput, ApplicationContext
+from app.routers.risk import _build_app_context, _default_app_context, _persist_assessment
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -79,6 +82,7 @@ def upload_for_scan(
     - Validates and ingests the upload (secure, temp-cleaned)
     - Runs deterministic Crypto Discovery Engine
     - Persists CryptoFinding rows
+    - Runs Risk Analysis Engine (QShield Explainable Migration Prioritization Methodology)
     - Returns scan record with file_count and finding_count
     - Never executes uploaded content
     - Never stores raw private keys or credentials
@@ -167,11 +171,36 @@ def upload_for_scan(
         db.add(finding)
         finding_count += 1
 
-    # ── 6. Complete scan ─────────────────────────────────────────────────────
+    # Commit findings before running risk analysis (analyzer reads from DB)
     scan.status = ScanStatus.completed
     scan.finding_count = finding_count
     scan.completed_at = datetime.now(timezone.utc)
     db.commit()
-    db.refresh(scan)
 
+    # ── 6. Run Risk Analysis Engine ──────────────────────────────────────────
+    try:
+        findings_orm = db.query(CryptoFinding).filter(CryptoFinding.scan_id == scan.id).all()
+        finding_inputs = [
+            FindingInput(
+                id=f.id,
+                algorithm=f.algorithm,
+                algorithm_family=f.algorithm_family,
+                category=f.category.value if hasattr(f.category, "value") else str(f.category),
+                quantum_status=f.quantum_status.value if hasattr(f.quantum_status, "value") else str(f.quantum_status),
+                key_size=f.key_size,
+                usage_context=f.usage_context,
+                confidence=float(f.confidence),
+                file_path=f.file_path,
+            )
+            for f in findings_orm
+        ]
+        ctx = _build_app_context(app_obj) if app_obj else _default_app_context()
+        risk_result = score_scan(scan.id, finding_inputs, ctx)
+        _persist_assessment(db, scan, risk_result, ctx)
+    except Exception:
+        # Risk analysis failure is non-fatal — scan data is already committed
+        pass
+
+    # ── 7. Return completed scan ─────────────────────────────────────────────
+    db.refresh(scan)
     return scan

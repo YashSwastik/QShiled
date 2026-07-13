@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, SlidersHorizontal, ChevronUp, ChevronDown,
   ChevronLeft, ChevronRight, FileSearch, AlertTriangle,
-  ArrowLeft, ShieldCheck, RefreshCw,
+  ArrowLeft, ShieldCheck, RefreshCw, Shield,
 } from 'lucide-react';
 import QShieldLogo from '../components/QShieldLogo';
 import { CategoryBadge, QuantumBadge, ConfidenceBar } from '../components/FindingBadges';
@@ -262,18 +262,36 @@ export default function InventoryPage() {
             </>
           )}
         </div>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 13, opacity: 0.5, background: 'none',
-            border: 'none', cursor: 'pointer', color: 'var(--color-text)',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
-        >
-          <ArrowLeft size={14} /> Back
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Risk Analysis CTA */}
+          <button
+            onClick={() => navigate(`/risk/${scanId}`)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 8,
+              background: 'var(--color-accent)', border: 'none',
+              color: 'white', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', letterSpacing: '0.01em',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            <Shield size={14} />
+            Risk Analysis
+          </button>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 13, opacity: 0.5, background: 'none',
+              border: 'none', cursor: 'pointer', color: 'var(--color-text)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+        </div>
       </header>
 
       {/* ── Main ── */}
