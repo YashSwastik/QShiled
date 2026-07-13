@@ -1,233 +1,575 @@
 /**
  * RiskPage.tsx — QShield Quantum Migration Risk Analysis
  *
- * Displays:
- *  - Overall quantum migration score + severity gauge
- *  - Methodology name, version, disclaimer
- *  - Factor-by-factor breakdown (with gate/raw transparency)
- *  - Finding counts (quantum vs classical/legacy)
- *  - Top-priority findings with per-finding factor drill-down
- *  - Application business context used for scoring
+ * Enterprise light-theme redesign:
+ *   - Persistent left sidebar navigation
+ *   - Tab bar (Overview / Factor Breakdown / Priority Findings / App Context)
+ *   - Compact horizontal summary strip
+ *   - Clean score panel (no neon gauge)
+ *   - Compact factor breakdown with progress bars
+ *   - Expandable finding rows
+ *   - Application context panel
  *
- * ALL values come from backend API — nothing is hardcoded here.
+ * ALL values come from /api/risk — nothing is hardcoded.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, AlertTriangle, ChevronRight, ArrowLeft, Info,
-  Cpu, Clock, Activity, Globe, Lock, FileKey,
-  CheckCircle, AlertCircle, HelpCircle,
-  ChevronDown, ChevronUp, RefreshCw, Layers
+  Shield, AlertTriangle, ArrowLeft, Info,
+  ChevronDown, ChevronUp, RefreshCw,
+  Home, BookOpen, BarChart2, Map, FlaskConical, FileText,
+  AlertCircle, CheckCircle, HelpCircle, ChevronRight,
 } from 'lucide-react';
 import { getRiskAnalysis } from '../services/riskApi';
 import type { ScanRiskResult, FindingRisk, FactorScore } from '../services/riskApi';
+import QShieldLogo from '../components/QShieldLogo';
 
-// ── Design constants ─────────────────────────────────────────────────────────
+// ── Design tokens (matching InventoryPage / FindingBadges) ────────────────────
 
-const SEVERITY_CONFIG = {
-  Low:      { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', bar: '#10b981', ring: '#10b981' },
-  Moderate: { bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   text: 'text-amber-400',   bar: '#f59e0b', ring: '#f59e0b' },
-  High:     { bg: 'bg-orange-500/10',  border: 'border-orange-500/30',  text: 'text-orange-400',  bar: '#f97316', ring: '#f97316' },
-  Critical: { bg: 'bg-red-500/10',     border: 'border-red-500/30',     text: 'text-red-400',     bar: '#ef4444', ring: '#ef4444' },
-} as const;
+const BORDER  = '1px solid rgba(25,40,55,0.09)';
+const BORDER2 = '1px solid rgba(25,40,55,0.06)';
+const TEXT    = '#192837';
+const MUTED   = 'rgba(25,40,55,0.45)';
+const MUTED2  = 'rgba(25,40,55,0.30)';
+const BG_PAGE = '#f8f8f5';
+const BG_SURF = '#ffffff';
+const ACCENT  = '#7342E2';
 
-const PRIORITY_CONFIG = {
-  immediate: { label: 'Immediate',   color: 'text-red-400',     dot: 'bg-red-400' },
-  near_term: { label: 'Near Term',   color: 'text-orange-400',  dot: 'bg-orange-400' },
-  long_term: { label: 'Long Term',   color: 'text-amber-400',   dot: 'bg-amber-400' },
-  low:        { label: 'Low Priority', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-} as const;
+// ── Severity config ───────────────────────────────────────────────────────────
 
-const FACTOR_ICONS: Record<string, React.ReactNode> = {
-  crypto_vulnerability:   <Cpu size={14} />,
-  confidentiality:        <Clock size={14} />,
-  business_criticality:   <Activity size={14} />,
-  external_exposure:      <Globe size={14} />,
-  migration_complexity:   <Layers size={14} />,
-  compliance_sensitivity: <Lock size={14} />,
+interface SevCfg { bg: string; text: string; border: string; dot: string }
+const SEV: Record<string, SevCfg> = {
+  Low:      { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0', dot: '#22c55e' },
+  Moderate: { bg: '#fffbeb', text: '#92400e', border: '#fde68a', dot: '#f59e0b' },
+  High:     { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa', dot: '#f97316' },
+  Critical: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca', dot: '#ef4444' },
+};
+const getSev = (s: string): SevCfg => SEV[s] ?? SEV.Low;
+
+// ── Priority config ───────────────────────────────────────────────────────────
+
+const PRI: Record<string, { label: string; color: string }> = {
+  immediate: { label: 'Immediate',    color: '#b91c1c' },
+  near_term: { label: 'Near Term',    color: '#c2410c' },
+  long_term: { label: 'Long Term',    color: '#a16207' },
+  low:       { label: 'Low Priority', color: '#15803d' },
+};
+const getPri = (p: string) => PRI[p] ?? PRI.low;
+
+// ── Factor weights (display only, mirrors backend) ────────────────────────────
+const FACTOR_WEIGHTS: Record<string, number> = {
+  crypto_vulnerability:   0.30,
+  confidentiality:        0.20,
+  business_criticality:   0.20,
+  external_exposure:      0.15,
+  migration_complexity:   0.10,
+  compliance_sensitivity: 0.05,
 };
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sidebar nav items ─────────────────────────────────────────────────────────
 
-function ScoreGauge({ score, severity }: { score: number; severity: string }) {
-  const sev = severity as keyof typeof SEVERITY_CONFIG;
-  const cfg = SEVERITY_CONFIG[sev] ?? SEVERITY_CONFIG.Low;
-  const circumference = 2 * Math.PI * 54;
-  const dash = (score / 100) * circumference;
+interface NavItem { label: string; icon: React.ReactNode; to: string; key: string }
+function buildNav(scanId?: string): NavItem[] {
+  return [
+    { key: 'overview',   label: 'Overview',        icon: <Home size={15} />,         to: '/app/dashboard' },
+    { key: 'inventory',  label: 'Crypto Inventory', icon: <BookOpen size={15} />,     to: scanId ? `/inventory/${scanId}` : '/upload' },
+    { key: 'risk',       label: 'Risk Analysis',    icon: <BarChart2 size={15} />,    to: scanId ? `/risk/${scanId}` : '#' },
+    { key: 'migration',  label: 'Migration',        icon: <Map size={15} />,          to: scanId ? `/recommendations/${scanId}` : '#' },
+    { key: 'pqclab',     label: 'PQC Lab',          icon: <FlaskConical size={15} />, to: '/demo' },
+    { key: 'reports',    label: 'Reports',          icon: <FileText size={15} />,     to: '#' },
+  ];
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+function Sidebar({ scanId }: { scanId?: string }) {
+  const nav = buildNav(scanId);
+  return (
+    <aside style={{
+      width: 220,
+      flexShrink: 0,
+      background: BG_SURF,
+      borderRight: BORDER,
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100vh',
+      position: 'sticky',
+      top: 0,
+      alignSelf: 'flex-start',
+    }}>
+      {/* Brand */}
+      <div style={{ padding: '18px 20px 16px', borderBottom: BORDER, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <QShieldLogo size={20} color={TEXT} />
+        <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-heading)', color: TEXT, letterSpacing: '-0.01em' }}>
+          QShield
+        </span>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ padding: '10px 10px', flex: 1 }}>
+        {nav.map(item => {
+          const isActive = item.key === 'risk';
+          const isDisabled = item.to === '#';
+          return (
+            <Link
+              key={item.key}
+              to={item.to}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '7px 12px',
+                borderRadius: 7,
+                marginBottom: 1,
+                fontSize: 13,
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? ACCENT : isDisabled ? MUTED2 : TEXT,
+                background: isActive ? `${ACCENT}10` : 'transparent',
+                textDecoration: 'none',
+                opacity: isDisabled ? 0.5 : 1,
+                cursor: isDisabled ? 'default' : 'pointer',
+                pointerEvents: isDisabled ? 'none' : 'auto',
+                transition: 'background 0.12s',
+              }}
+              onMouseEnter={e => { if (!isActive && !isDisabled) (e.currentTarget as HTMLElement).style.background = 'rgba(25,40,55,0.04)'; }}
+              onMouseLeave={e => { if (!isActive && !isDisabled) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span style={{ color: isActive ? ACCENT : MUTED, flexShrink: 0 }}>{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div style={{ padding: '14px 20px', borderTop: BORDER }}>
+        <span style={{ fontSize: 11, color: MUTED2 }}>QShield · Risk Engine v1.0</span>
+      </div>
+    </aside>
+  );
+}
+
+// ── Score badge (inline, no gauge) ────────────────────────────────────────────
+
+function ScoreBadge({ score, severity }: { score: number; severity: string }) {
+  const cfg = getSev(severity);
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
+      <span style={{
+        fontFamily: 'var(--font-heading)',
+        fontSize: 48,
+        fontWeight: 700,
+        lineHeight: 1,
+        color: cfg.text,
+        letterSpacing: '-0.03em',
+      }}>
+        {Math.round(score)}
+      </span>
+      <span style={{ fontSize: 18, color: MUTED, fontWeight: 400 }}>/100</span>
+    </div>
+  );
+}
+
+// ── Severity badge inline ─────────────────────────────────────────────────────
+
+function SevBadge({ severity, size = 'md' }: { severity: string; size?: 'sm' | 'md' }) {
+  const cfg = getSev(severity);
+  const fs = size === 'sm' ? 10 : 11;
+  const px = size === 'sm' ? 6 : 8;
+  const py = size === 'sm' ? 2 : 3;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: cfg.bg, color: cfg.text,
+      border: `1px solid ${cfg.border}`,
+      borderRadius: 6,
+      fontSize: fs, fontWeight: 600,
+      padding: `${py}px ${px}px`,
+      whiteSpace: 'nowrap',
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
+      {severity}
+    </span>
+  );
+}
+
+// ── Summary strip ─────────────────────────────────────────────────────────────
+
+function SummaryStrip({ data }: { data: ScanRiskResult }) {
+  const cfg = getSev(data.overall_severity);
+  const items = [
+    {
+      label: 'Risk Score',
+      value: `${Math.round(data.overall_quantum_score)}/100`,
+      sub: data.overall_severity,
+      color: cfg.text,
+    },
+    {
+      label: 'Quantum Vulnerable',
+      value: String(data.vulnerable_count),
+      sub: 'need migration',
+      color: '#b91c1c',
+      icon: <AlertCircle size={13} />,
+    },
+    {
+      label: 'Already Safe',
+      value: String(data.safe_count),
+      sub: 'quantum-safe',
+      color: '#15803d',
+      icon: <CheckCircle size={13} />,
+    },
+    {
+      label: 'Classical / Legacy',
+      value: String(data.legacy_count),
+      sub: 'separate concern',
+      color: '#c2410c',
+      icon: <AlertTriangle size={13} />,
+    },
+    {
+      label: 'Borderline / Review',
+      value: String(data.borderline_count),
+      sub: 'needs assessment',
+      color: '#a16207',
+      icon: <HelpCircle size={13} />,
+    },
+  ];
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative w-40 h-40">
-        {/* Track */}
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="54" fill="none"
-            stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-          <circle cx="60" cy="60" r="54" fill="none"
-            stroke={cfg.ring} strokeWidth="10" strokeLinecap="round"
-            strokeDasharray={`${dash} ${circumference}`}
-            style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)' }} />
-        </svg>
-        {/* Center text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-4xl font-bold text-white leading-none" style={{ fontFamily: 'var(--font-heading)' }}>
-            {Math.round(score)}
-          </span>
-          <span className="text-xs text-white/40 mt-1">/ 100</span>
+    <div style={{
+      background: BG_SURF,
+      border: BORDER,
+      borderRadius: 10,
+      display: 'flex',
+      alignItems: 'stretch',
+      overflow: 'hidden',
+    }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{
+          flex: 1,
+          padding: '12px 18px',
+          borderRight: i < items.length - 1 ? BORDER : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          minWidth: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {item.icon && <span style={{ color: item.color }}>{item.icon}</span>}
+            <span style={{ fontSize: 11, color: MUTED, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {item.label}
+            </span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: item.color, fontFamily: 'var(--font-heading)', lineHeight: 1.1 }}>
+            {item.value}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED2 }}>{item.sub}</div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Factor bar row ────────────────────────────────────────────────────────────
+
+function FactorRow({ factor, isLast }: { factor: FactorScore; isLast: boolean }) {
+  const pct = Math.min(100, (factor.raw_value) * 100);
+  const barColor = factor.raw_value >= 0.7 ? '#ef4444'
+    : factor.raw_value >= 0.4 ? '#f59e0b'
+    : '#22c55e';
+  const weight = FACTOR_WEIGHTS[factor.factor] ?? factor.weight;
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '200px 1fr 80px 64px',
+      alignItems: 'center',
+      gap: 16,
+      padding: '9px 16px',
+      borderBottom: isLast ? 'none' : BORDER2,
+      fontSize: 13,
+    }}>
+      {/* Label */}
+      <span style={{ color: TEXT, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {factor.label}
+      </span>
+
+      {/* Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(25,40,55,0.08)', overflow: 'hidden' }}>
+          <div style={{
+            width: `${pct}%`, height: '100%', borderRadius: 3,
+            background: barColor,
+            transition: 'width 0.5s ease',
+          }} />
+        </div>
+        <span style={{ fontSize: 11, color: MUTED, minWidth: 28, textAlign: 'right' }}>
+          {Math.round(pct)}%
+        </span>
       </div>
-      <span className={`px-4 py-1.5 rounded-full text-sm font-semibold border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
-        {severity} Risk
+
+      {/* Contribution */}
+      <span style={{ fontSize: 12, color: TEXT, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {factor.weighted_contribution.toFixed(1)}
+        <span style={{ color: MUTED2, fontSize: 10 }}> pts</span>
+      </span>
+
+      {/* Weight */}
+      <span style={{ fontSize: 11, color: MUTED2, textAlign: 'right' }}>
+        {Math.round(weight * 100)}% wt
       </span>
     </div>
   );
 }
 
-function FactorBar({ factor, maxContrib = 30 }: { factor: FactorScore; maxContrib?: number }) {
-  const pct = Math.min(100, (factor.weighted_contribution / maxContrib) * 100);
-  const icon = FACTOR_ICONS[factor.factor] ?? <FileKey size={14} />;
-  return (
-    <div className="group">
-      <div className="flex items-center justify-between mb-1.5 gap-2">
-        <div className="flex items-center gap-1.5 text-white/60 text-xs min-w-0">
-          <span className="shrink-0 text-white/40">{icon}</span>
-          <span className="truncate">{factor.label}</span>
-          <span className="shrink-0 text-white/30 text-[10px]">({Math.round(factor.weight * 100)}%)</span>
-        </div>
-        <span className="text-white/80 text-xs font-mono shrink-0">
-          {factor.weighted_contribution.toFixed(1)}
-          <span className="text-white/30 text-[10px]">pts</span>
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400 transition-all duration-700"
-          style={{ width: `${pct}%`, opacity: factor.raw_value < 0.1 ? 0.3 : 1 }}
-        />
-      </div>
-      <p className="mt-1 text-white/35 text-[10px] leading-snug line-clamp-2 hidden group-hover:block">
-        {factor.rationale}
-      </p>
-    </div>
-  );
-}
+// ── Finding row (expandable) ──────────────────────────────────────────────────
 
-function FindingCard({ finding, scanId }: { finding: FindingRisk; scanId: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const sevCfg = SEVERITY_CONFIG[finding.quantum_migration_severity] ?? SEVERITY_CONFIG.Low;
-  const priCfg = PRIORITY_CONFIG[finding.migration_priority] ?? PRIORITY_CONFIG.low;
+function FindingRow({ finding, scanId, isLast }: { finding: FindingRisk; scanId: string; isLast: boolean }) {
+  const [open, setOpen] = useState(false);
+  const sev = getSev(finding.quantum_migration_severity);
+  const pri = getPri(finding.migration_priority);
   const gateReduced = finding.raw_weighted_sum - finding.quantum_migration_score > 5;
 
   return (
-    <div className={`rounded-xl border ${sevCfg.border} bg-white/[0.03] overflow-hidden`}>
-      {/* Header */}
-      <button
-        className="w-full flex items-start gap-4 p-4 text-left hover:bg-white/[0.02] transition-colors"
-        onClick={() => setExpanded(e => !e)}
-        aria-expanded={expanded}
+    <>
+      {/* Summary row */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '48px 1fr 1fr 110px 90px 28px',
+          alignItems: 'center',
+          gap: 12,
+          padding: '10px 16px',
+          borderBottom: (!open && !isLast) ? BORDER2 : open ? 'none' : 'none',
+          cursor: 'pointer',
+          fontSize: 13,
+          transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(25,40,55,0.02)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        {/* Score circle */}
-        <div className={`mt-0.5 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border ${sevCfg.border} ${sevCfg.bg}`}>
-          <span className={`text-sm font-bold ${sevCfg.text}`}>{Math.round(finding.quantum_migration_score)}</span>
+        {/* Score */}
+        <div style={{
+          width: 40, height: 40,
+          borderRadius: 8,
+          background: sev.bg,
+          border: `1px solid ${sev.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: sev.text }}>
+            {Math.round(finding.quantum_migration_score)}
+          </span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-white text-sm">{finding.algorithm}</span>
-            <span className="text-white/40 text-xs px-2 py-0.5 rounded bg-white/5">{finding.algorithm_family}</span>
-            <span className={`text-[11px] font-medium ${priCfg.color} flex items-center gap-1`}>
-              <span className={`w-1.5 h-1.5 rounded-full inline-block ${priCfg.dot}`} />
-              {priCfg.label}
+        {/* Algorithm + file */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, color: TEXT, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {finding.algorithm}
+            <span style={{ fontWeight: 400, fontSize: 11, color: MUTED, background: 'rgba(25,40,55,0.06)', padding: '1px 6px', borderRadius: 4 }}>
+              {finding.algorithm_family}
             </span>
           </div>
           {finding.file_path && (
-            <p className="text-white/35 text-xs mt-0.5 truncate font-mono">{finding.file_path}</p>
-          )}
-          {/* Classical warning badge */}
-          {finding.classical_legacy_risk && (
-            <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <AlertTriangle size={10} />
-              Classical {finding.classical_legacy_risk} risk (separate concern)
-            </span>
+            <div style={{ fontSize: 11, color: MUTED, fontFamily: 'monospace', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {finding.file_path}
+            </div>
           )}
         </div>
 
-        <span className="shrink-0 text-white/30">
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        {/* Explanation preview */}
+        <div style={{ fontSize: 12, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+          {finding.explanation.split('.')[0]}
+        </div>
+
+        {/* Priority */}
+        <span style={{ fontSize: 11, fontWeight: 600, color: pri.color, whiteSpace: 'nowrap' }}>
+          {pri.label}
         </span>
-      </button>
+
+        {/* Severity */}
+        <SevBadge severity={finding.quantum_migration_severity} size="sm" />
+
+        {/* Chevron */}
+        <span style={{ color: MUTED2, flexShrink: 0 }}>
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+      </div>
 
       {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-white/5 px-4 pb-4 pt-3 space-y-4">
-          {/* Explanation */}
-          <div className="rounded-lg bg-white/[0.03] p-3">
-            <p className="text-white/60 text-xs leading-relaxed">{finding.explanation}</p>
+      {open && (
+        <div style={{
+          padding: '0 16px 14px 78px',
+          borderBottom: isLast ? 'none' : BORDER2,
+          background: 'rgba(25,40,55,0.012)',
+        }}>
+          {/* Full explanation */}
+          <div style={{
+            background: BG_SURF,
+            border: BORDER,
+            borderRadius: 8,
+            padding: '10px 14px',
+            fontSize: 12,
+            color: TEXT,
+            lineHeight: 1.6,
+            marginBottom: 10,
+          }}>
+            {finding.explanation}
           </div>
 
-          {/* Gate transparency note */}
+          {/* Gate transparency */}
           {gateReduced && (
-            <div className="flex gap-2 rounded-lg bg-violet-500/5 border border-violet-500/20 p-3">
-              <Info size={14} className="text-violet-400 shrink-0 mt-0.5" />
-              <p className="text-violet-300/70 text-xs leading-relaxed">
-                <strong className="text-violet-300">Gate applied:</strong> Raw weighted sum was{' '}
-                <span className="font-mono">{finding.raw_weighted_sum.toFixed(1)}/100</span>, reduced to{' '}
-                <span className="font-mono">{finding.quantum_migration_score.toFixed(1)}/100</span> by
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              background: '#f5f3ff', border: '1px solid #e9d5ff',
+              borderRadius: 7, padding: '8px 12px',
+              fontSize: 12, color: '#6b21a8',
+              marginBottom: 10,
+            }}>
+              <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                <strong>Gate applied:</strong> Raw weighted sum {finding.raw_weighted_sum.toFixed(1)}/100 →
+                reduced to {finding.quantum_migration_score.toFixed(1)}/100 by the
                 crypto-vulnerability gate ({(finding.crypto_vulnerability_gate * 100).toFixed(0)}%).
-                This algorithm has low quantum relevance — business context factors are suppressed accordingly.
-              </p>
+                This algorithm has low quantum relevance; business context factors are suppressed.
+              </span>
             </div>
           )}
 
-          {/* Classical/Legacy risk section */}
+          {/* Classical risk */}
           {finding.classical_legacy_risk && finding.classical_legacy_rationale && (
-            <div className="flex gap-2 rounded-lg bg-orange-500/5 border border-orange-500/20 p-3">
-              <AlertTriangle size={14} className="text-orange-400 shrink-0 mt-0.5" />
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              background: '#fff7ed', border: '1px solid #fed7aa',
+              borderRadius: 7, padding: '8px 12px',
+              fontSize: 12, color: '#92400e',
+              marginBottom: 10,
+            }}>
+              <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
               <div>
-                <p className="text-orange-400 text-xs font-semibold mb-0.5">
-                  Classical / Legacy Security Issue ({finding.classical_legacy_risk})
-                </p>
-                <p className="text-orange-300/60 text-xs leading-relaxed">{finding.classical_legacy_rationale}</p>
+                <strong>Classical / Legacy Risk ({finding.classical_legacy_risk}) — separate concern</strong>
+                <div style={{ marginTop: 2, opacity: 0.8 }}>{finding.classical_legacy_rationale}</div>
               </div>
             </div>
           )}
 
-          {/* Factor breakdown */}
-          <div className="space-y-2">
-            <p className="text-white/30 text-[10px] uppercase tracking-wider font-medium">Factor Breakdown</p>
-            <div className="space-y-2">
-              {finding.factors.map(f => <FactorBar key={f.factor} factor={f} />)}
+          {/* Factor mini-table */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: MUTED2, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+              Factor Breakdown
+            </div>
+            <div style={{ background: BG_SURF, border: BORDER, borderRadius: 8, overflow: 'hidden' }}>
+              {finding.factors.map((f, i) => (
+                <div key={f.factor} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '6px 12px',
+                  borderBottom: i < finding.factors.length - 1 ? BORDER2 : 'none',
+                  fontSize: 12,
+                }}>
+                  <span style={{ flex: '0 0 170px', color: TEXT, fontWeight: 500 }}>{f.label}</span>
+                  <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(25,40,55,0.08)', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min(100, f.raw_value * 100)}%`,
+                      height: '100%',
+                      borderRadius: 2,
+                      background: f.raw_value >= 0.7 ? '#ef4444' : f.raw_value >= 0.4 ? '#f59e0b' : '#22c55e',
+                    }} />
+                  </div>
+                  <span style={{ flex: '0 0 56px', textAlign: 'right', color: MUTED, fontVariantNumeric: 'tabular-nums' }}>
+                    {f.weighted_contribution.toFixed(1)} pts
+                  </span>
+                  <span style={{ flex: '0 0 40px', textAlign: 'right', color: MUTED2, fontSize: 11 }}>
+                    {Math.round(f.weight * 100)}%
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* NIST Recommendation */}
+          {/* NIST recommendation */}
           {finding.nist_recommendation && (
-            <div className="flex gap-2 rounded-lg bg-blue-500/5 border border-blue-500/20 p-3">
-              <Shield size={14} className="text-blue-400 shrink-0 mt-0.5" />
-              <p className="text-blue-300/80 text-xs leading-relaxed">
-                <strong className="text-blue-300">NIST Recommendation:</strong> {finding.nist_recommendation}
-              </p>
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              background: '#eff6ff', border: '1px solid #bfdbfe',
+              borderRadius: 7, padding: '8px 12px',
+              fontSize: 12, color: '#1e40af',
+              marginBottom: 10,
+            }}>
+              <Shield size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span><strong>NIST Recommendation:</strong> {finding.nist_recommendation}</span>
             </div>
           )}
 
-          {/* Link to finding detail */}
           <Link
             to={`/inventory/${scanId}/finding/${finding.finding_id}`}
-            className="inline-flex items-center gap-1.5 text-violet-400 hover:text-violet-300 text-xs transition-colors"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: ACCENT, textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
           >
             View full finding detail <ChevronRight size={12} />
           </Link>
         </div>
       )}
+    </>
+  );
+}
+
+// ── Section card ──────────────────────────────────────────────────────────────
+
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      background: BG_SURF,
+      border: BORDER,
+      borderRadius: 10,
+      overflow: 'hidden',
+      ...style,
+    }}>
+      {children}
     </div>
   );
 }
 
-function ContextBadge({ label, value, active }: { label: string; value: string; active?: boolean }) {
+function CardHeader({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-white/30 text-[10px] uppercase tracking-wide">{label}</span>
-      <span className={`text-xs font-medium ${active ? 'text-violet-300' : 'text-white/60'}`}>{value}</span>
+    <div style={{
+      padding: '12px 16px 11px',
+      borderBottom: BORDER,
+      display: 'flex', alignItems: 'baseline', gap: 10,
+    }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{title}</span>
+      {sub && <span style={{ fontSize: 12, color: MUTED }}>{sub}</span>}
+    </div>
+  );
+}
+
+// ── Tab bar ───────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'overview',   label: 'Overview' },
+  { id: 'factors',    label: 'Factor Breakdown' },
+  { id: 'findings',   label: 'Priority Findings' },
+  { id: 'context',    label: 'Application Context' },
+];
+
+// ── Context row helper ────────────────────────────────────────────────────────
+
+function CtxRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      padding: '8px 16px',
+      borderBottom: BORDER2,
+      fontSize: 13,
+      gap: 16,
+    }}>
+      <span style={{ flex: '0 0 190px', color: MUTED, fontWeight: 500 }}>{label}</span>
+      <span style={{ color: highlight ? TEXT : TEXT, fontWeight: highlight ? 600 : 400 }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -241,7 +583,21 @@ export default function RiskPage() {
   const [data, setData] = useState<ScanRiskResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
   const [showMethodology, setShowMethodology] = useState(false);
+
+  // Section refs for tab scroll
+  const overviewRef  = useRef<HTMLDivElement>(null);
+  const factorsRef   = useRef<HTMLDivElement>(null);
+  const findingsRef  = useRef<HTMLDivElement>(null);
+  const contextRef   = useRef<HTMLDivElement>(null);
+
+  const refs: Record<string, React.RefObject<HTMLDivElement | null>> = {
+    overview:  overviewRef,
+    factors:   factorsRef,
+    findings:  findingsRef,
+    context:   contextRef,
+  };
 
   const load = useCallback(async () => {
     if (!scanId) return;
@@ -259,37 +615,61 @@ export default function RiskPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  function handleTabClick(tabId: string) {
+    setActiveTab(tabId);
+    refs[tabId]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center"
-        style={{ background: 'var(--color-login-bg)' }}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
-          <p className="text-white/50 text-sm">Running risk analysis…</p>
+      <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
+        <Sidebar scanId={scanId} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            border: `2px solid ${ACCENT}30`,
+            borderTopColor: ACCENT,
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <span style={{ fontSize: 13, color: MUTED }}>Running risk analysis…</span>
         </div>
       </div>
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-6"
-        style={{ background: 'var(--color-login-bg)' }}>
-        <div className="max-w-md w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center space-y-4">
-          <AlertTriangle size={40} className="mx-auto text-red-400" />
-          <h2 className="text-white font-semibold">Risk Analysis Failed</h2>
-          <p className="text-white/50 text-sm">{error}</p>
-          <div className="flex gap-3 justify-center">
-            <button onClick={load}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-sm transition-colors">
-              <RefreshCw size={14} /> Retry
-            </button>
-            <button onClick={() => navigate(-1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm transition-colors">
-              <ArrowLeft size={14} /> Back
-            </button>
+      <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
+        <Sidebar scanId={scanId} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div style={{
+            background: BG_SURF, border: '1px solid #fecaca', borderRadius: 12,
+            padding: 32, maxWidth: 420, width: '100%', textAlign: 'center',
+          }}>
+            <AlertTriangle size={32} style={{ color: '#ef4444', marginBottom: 12 }} />
+            <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Risk Analysis Failed</div>
+            <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>{error}</div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={load} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px', borderRadius: 7,
+                border: BORDER, background: BG_SURF,
+                fontSize: 13, cursor: 'pointer', color: TEXT,
+              }}>
+                <RefreshCw size={13} /> Retry
+              </button>
+              <button onClick={() => navigate(`/inventory/${scanId}`)} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px', borderRadius: 7,
+                border: 'none', background: ACCENT,
+                fontSize: 13, cursor: 'pointer', color: 'white', fontWeight: 600,
+              }}>
+                <ArrowLeft size={13} /> Back to Inventory
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -298,240 +678,378 @@ export default function RiskPage() {
 
   if (!data) return null;
 
-  const sev = data.overall_severity as keyof typeof SEVERITY_CONFIG;
-  const sevCfg = SEVERITY_CONFIG[sev] ?? SEVERITY_CONFIG.Low;
-
-  // Factor summary sorted by contribution descending
+  const sevCfg = getSev(data.overall_severity);
   const factorEntries = Object.entries(data.factor_summary).sort((a, b) => b[1] - a[1]);
-
-  const bg = 'linear-gradient(135deg, #0d0f14 0%, #111827 50%, #0a0d12 100%)';
+  // Build factor label map from first top finding (or fall back to key)
+  const labelMap: Record<string, string> = {};
+  data.top_findings[0]?.factors.forEach(f => { labelMap[f.factor] = f.label; });
 
   return (
-    <div className="min-h-dvh" style={{ background: bg }}>
-      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl border-b border-white/5"
-        style={{ background: 'rgba(13,15,20,0.85)' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(`/inventory/${scanId}`)}
-              className="shrink-0 p-1.5 rounded-lg hover:bg-white/5 text-white/50 hover:text-white/80 transition-colors">
-              <ArrowLeft size={18} />
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-white font-semibold text-sm truncate">Risk Analysis</h1>
-              <p className="text-white/30 text-[10px] font-mono truncate">{scanId}</p>
-            </div>
+    <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE, fontFamily: 'var(--font-body)', color: TEXT }}>
+      <Sidebar scanId={scanId} />
+
+      {/* ── Main content ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+
+        {/* ── Top header ── */}
+        <div style={{
+          background: BG_SURF,
+          borderBottom: BORDER,
+          padding: '0 28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 56,
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-heading)', color: TEXT }}>
+              Risk Analysis
+            </span>
+            {scanId && (
+              <>
+                <span style={{ color: MUTED2, fontSize: 16 }}>/</span>
+                <span style={{ fontSize: 12, color: MUTED, fontFamily: 'monospace', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {scanId}
+                </span>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to={`/inventory/${scanId}`}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors hidden sm:block"
-            >
-              ← Inventory
-            </Link>
-            <button onClick={load}
-              className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
-              title="Recalculate">
-              <RefreshCw size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-
-        {/* ── Context defaulted warning ─────────────────────────────────── */}
-        {data.context_defaulted && (
-          <div className="flex gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-            <HelpCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-amber-300/80 text-xs leading-relaxed">
-              Business context for this application was unavailable. Neutral defaults were used
-              (medium criticality, internal, medium-term). Scores may understate or overstate
-              actual migration priority.
-            </p>
-          </div>
-        )}
-
-        {/* ── Hero: score + overall counts ──────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Score gauge */}
-          <div className={`lg:col-span-1 rounded-2xl border ${sevCfg.border} p-6 flex flex-col items-center gap-5`}
-            style={{ background: 'rgba(255,255,255,0.02)' }}>
-            <ScoreGauge score={data.overall_quantum_score} severity={data.overall_severity} />
-            <div className="text-center space-y-1">
-              <p className="text-white/70 text-sm font-medium">Quantum Migration Priority</p>
-              <p className="text-white/30 text-xs leading-relaxed max-w-xs">
-                {data.summary_text}
-              </p>
-            </div>
-          </div>
-
-          {/* Counts grid */}
-          <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-2 gap-4">
-            {/* Quantum vulnerable */}
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-red-400">
-                <AlertCircle size={18} />
-                <span className="text-sm font-semibold">Quantum Vulnerable</span>
-              </div>
-              <p className="text-4xl font-bold text-white">{data.vulnerable_count}</p>
-              <p className="text-white/35 text-xs">algorithms requiring PQC migration</p>
-            </div>
-
-            {/* Quantum safe */}
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <CheckCircle size={18} />
-                <span className="text-sm font-semibold">Already Safe</span>
-              </div>
-              <p className="text-4xl font-bold text-white">{data.safe_count}</p>
-              <p className="text-white/35 text-xs">quantum-safe algorithms found</p>
-            </div>
-
-            {/* Classical/legacy — explicitly separate */}
-            <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-orange-400">
-                <AlertTriangle size={18} />
-                <span className="text-sm font-semibold">Classical / Legacy</span>
-              </div>
-              <p className="text-4xl font-bold text-white">{data.legacy_count}</p>
-              <p className="text-white/35 text-xs">classical security concerns (separate from quantum risk)</p>
-            </div>
-
-            {/* Borderline */}
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-amber-400">
-                <HelpCircle size={18} />
-                <span className="text-sm font-semibold">Borderline / Review</span>
-              </div>
-              <p className="text-4xl font-bold text-white">{data.borderline_count}</p>
-              <p className="text-white/35 text-xs">requires case-by-case assessment</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Factor breakdown ────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/5 p-6 space-y-5" style={{ background: 'rgba(255,255,255,0.02)' }}>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-white font-semibold">Factor Breakdown</h2>
-              <p className="text-white/30 text-xs mt-0.5">
-                Average weighted contribution across all findings (before crypto-vulnerability gate)
-              </p>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
-              onClick={() => setShowMethodology(m => !m)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/8 text-white/40 hover:text-white/60 text-xs transition-colors"
+              onClick={load}
+              title="Recalculate"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 7,
+                border: BORDER, background: 'transparent',
+                fontSize: 12, cursor: 'pointer', color: MUTED,
+              }}
             >
-              <Info size={12} />
-              {showMethodology ? 'Hide' : 'Methodology'}
+              <RefreshCw size={12} /> Recalculate
             </button>
+            <button
+              onClick={() => navigate(`/inventory/${scanId}`)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 7,
+                border: BORDER, background: 'transparent',
+                fontSize: 13, cursor: 'pointer', color: TEXT, fontWeight: 500,
+              }}
+            >
+              <ArrowLeft size={13} /> Inventory
+            </button>
+            {scanId && (
+              <button
+                onClick={() => navigate(`/recommendations/${scanId}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 14px', borderRadius: 7,
+                  border: 'none', background: ACCENT,
+                  fontSize: 13, cursor: 'pointer', color: 'white', fontWeight: 600,
+                }}
+              >
+                <Map size={13} /> Migration Plan
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Methodology explanation panel */}
-          {showMethodology && (
-            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-violet-400" />
-                <span className="text-violet-300 text-sm font-semibold">{data.methodology}</span>
-                <span className="text-violet-400/50 text-xs">v{data.methodology_version}</span>
-              </div>
-              <p className="text-violet-300/60 text-xs leading-relaxed">{data.methodology_description}</p>
-              <p className="text-white/30 text-xs leading-relaxed italic">{data.disclaimer}</p>
+        {/* ── Tab bar ── */}
+        <div style={{
+          background: BG_SURF,
+          borderBottom: BORDER,
+          padding: '0 28px',
+          display: 'flex',
+          gap: 0,
+          position: 'sticky',
+          top: 56,
+          zIndex: 9,
+        }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab.id)}
+              style={{
+                padding: '10px 18px',
+                fontSize: 13,
+                fontWeight: activeTab === tab.id ? 600 : 400,
+                color: activeTab === tab.id ? ACCENT : MUTED,
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === tab.id ? `2px solid ${ACCENT}` : '2px solid transparent',
+                cursor: 'pointer',
+                marginBottom: -1,
+                transition: 'color 0.12s',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Page body ── */}
+        <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Context defaulted warning */}
+          {data.context_defaulted && (
+            <div style={{
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: 8, padding: '10px 14px',
+              fontSize: 12, color: '#92400e',
+            }}>
+              <HelpCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                Business context was unavailable for this application.
+                Neutral defaults were applied (medium criticality, internal, medium-term).
+                Scores may not reflect actual migration urgency.
+              </span>
             </div>
           )}
 
-          {/* Factor bars */}
-          <div className="space-y-4">
-            {factorEntries.map(([factor, contrib]) => {
-              const label = data.top_findings[0]?.factors.find(f => f.factor === factor)?.label ?? factor.replace(/_/g, ' ');
-              const icon = FACTOR_ICONS[factor] ?? <FileKey size={14} />;
-              const pct = Math.min(100, (contrib / 30) * 100);
-              return (
-                <div key={factor}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="flex items-center gap-1.5 text-white/60 text-xs">
-                      <span className="text-white/40">{icon}</span>
-                      {label}
-                    </span>
-                    <span className="text-white/70 text-xs font-mono">{contrib.toFixed(1)} pts avg</span>
+          {/* Summary strip */}
+          <SummaryStrip data={data} />
+
+          {/* ── Overview section ── */}
+          <div ref={overviewRef} style={{ scrollMarginTop: 120 }}>
+            <Card>
+              <CardHeader title="Quantum Migration Overview" sub={`${data.methodology} v${data.methodology_version}`} />
+              <div style={{ padding: '20px 20px', display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+                {/* Score block */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+                  <ScoreBadge score={data.overall_quantum_score} severity={data.overall_severity} />
+                  <SevBadge severity={data.overall_severity} />
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, background: 'rgba(25,40,55,0.08)', alignSelf: 'stretch', flexShrink: 0 }} />
+
+                {/* Summary text + methodology */}
+                <div style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 14, color: TEXT, lineHeight: 1.6 }}>
+                    {data.summary_text}
                   </div>
-                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-400 transition-all duration-700"
-                      style={{ width: `${pct}%` }}
+
+                  {/* Methodology toggle */}
+                  <div>
+                    <button
+                      onClick={() => setShowMethodology(m => !m)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        fontSize: 12, color: MUTED, background: 'none',
+                        border: 'none', cursor: 'pointer', padding: 0,
+                        textDecoration: 'underline', textDecorationStyle: 'dotted',
+                        textUnderlineOffset: 3,
+                      }}
+                    >
+                      <Info size={12} />
+                      {showMethodology ? 'Hide methodology' : 'How is this scored?'}
+                    </button>
+
+                    {showMethodology && (
+                      <div style={{
+                        marginTop: 10,
+                        background: '#f5f3ff',
+                        border: '1px solid #ede9fe',
+                        borderRadius: 8,
+                        padding: '12px 14px',
+                        fontSize: 12,
+                        color: '#4c1d95',
+                        lineHeight: 1.65,
+                      }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Shield size={13} />
+                          {data.methodology}
+                        </div>
+                        <p style={{ margin: '0 0 8px' }}>{data.methodology_description}</p>
+                        <p style={{ margin: 0, opacity: 0.7, fontStyle: 'italic' }}>{data.disclaimer}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Disclaimer always visible */}
+                  {!showMethodology && (
+                    <div style={{
+                      fontSize: 11, color: MUTED2,
+                      borderTop: BORDER2, paddingTop: 10, lineHeight: 1.5,
+                    }}>
+                      <Info size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                      {data.disclaimer}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* ── Factor Breakdown section ── */}
+          <div ref={factorsRef} style={{ scrollMarginTop: 120 }}>
+            <Card>
+              <CardHeader
+                title="Factor Breakdown"
+                sub="Average weighted contribution before crypto-vulnerability gate"
+              />
+
+              {/* Column headers */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '200px 1fr 80px 64px',
+                gap: 16,
+                padding: '7px 16px',
+                borderBottom: BORDER,
+                fontSize: 10,
+                fontWeight: 600,
+                color: MUTED2,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}>
+                <span>Factor</span>
+                <span>Raw Score</span>
+                <span style={{ textAlign: 'right' }}>Contribution</span>
+                <span style={{ textAlign: 'right' }}>Weight</span>
+              </div>
+
+              {/* Factor rows from factor_summary — use first finding's factors for labels+raw */}
+              {data.top_findings.length > 0
+                ? data.top_findings[0].factors.map((f, i) => (
+                    <FactorRow
+                      key={f.factor}
+                      factor={{
+                        ...f,
+                        weighted_contribution: factorEntries.find(([k]) => k === f.factor)?.[1] ?? f.weighted_contribution,
+                      }}
+                      isLast={i === data.top_findings[0].factors.length - 1}
                     />
+                  ))
+                : factorEntries.map(([factor, contrib], i) => (
+                    <FactorRow
+                      key={factor}
+                      factor={{
+                        factor,
+                        label: labelMap[factor] ?? factor.replace(/_/g, ' '),
+                        weight: FACTOR_WEIGHTS[factor] ?? 0,
+                        raw_value: contrib / ((FACTOR_WEIGHTS[factor] ?? 0.1) * 100),
+                        weighted_contribution: contrib,
+                        rationale: '',
+                      }}
+                      isLast={i === factorEntries.length - 1}
+                    />
+                  ))
+              }
+
+              {/* Totals row */}
+              <div style={{
+                display: 'flex', justifyContent: 'flex-end',
+                padding: '8px 16px',
+                borderTop: BORDER,
+                fontSize: 12,
+                color: MUTED,
+                gap: 8,
+              }}>
+                <span>Overall score after gate:</span>
+                <span style={{ fontWeight: 700, color: sevCfg.text, fontVariantNumeric: 'tabular-nums' }}>
+                  {data.overall_quantum_score.toFixed(1)}/100
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          {/* ── Priority Findings section ── */}
+          <div ref={findingsRef} style={{ scrollMarginTop: 120 }}>
+            <Card>
+              <div style={{
+                padding: '12px 16px 11px',
+                borderBottom: BORDER,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>Priority Findings</span>
+                  <span style={{ fontSize: 12, color: MUTED }}>
+                    {data.top_findings.length} highest-priority (click to expand)
+                  </span>
+                </div>
+                <Link
+                  to={`/inventory/${scanId}`}
+                  style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}
+                >
+                  View all <ChevronRight size={12} />
+                </Link>
+              </div>
+
+              {/* Column headers */}
+              {data.top_findings.length > 0 && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '48px 1fr 1fr 110px 90px 28px',
+                  gap: 12,
+                  padding: '6px 16px',
+                  borderBottom: BORDER,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: MUTED2,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}>
+                  <span>Score</span>
+                  <span>Algorithm</span>
+                  <span>Explanation</span>
+                  <span>Priority</span>
+                  <span>Severity</span>
+                  <span />
+                </div>
+              )}
+
+              {data.top_findings.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                  <CheckCircle size={32} style={{ color: '#22c55e', margin: '0 auto 12px', display: 'block' }} />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 6 }}>No Quantum Migration Required</div>
+                  <div style={{ fontSize: 13, color: MUTED }}>
+                    {data.summary_text || 'No quantum-vulnerable cryptography was detected.'}
                   </div>
                 </div>
-              );
-            })}
+              ) : (
+                data.top_findings.map((f, i) => (
+                  <FindingRow
+                    key={f.finding_id}
+                    finding={f}
+                    scanId={scanId!}
+                    isLast={i === data.top_findings.length - 1}
+                  />
+                ))
+              )}
+            </Card>
+          </div>
+
+          {/* ── Application Context section ── */}
+          <div ref={contextRef} style={{ scrollMarginTop: 120 }}>
+            <Card>
+              <CardHeader title="Application Context Used for Scoring" />
+              <div style={{ borderBottom: BORDER2 }}>
+                <CtxRow label="Business Criticality"    value={data.business_criticality}                             highlight={['high','critical'].includes(data.business_criticality)} />
+                <CtxRow label="Environment"             value={data.environment} />
+                <CtxRow label="Internet Exposed"        value={data.internet_exposed ? 'Yes' : 'No'}                  highlight={data.internet_exposed} />
+                <CtxRow label="Confidentiality"         value={data.confidentiality_requirement.replace(/_/g, ' ')} />
+                <CtxRow label="Data Sensitivity"        value={data.data_sensitivity}                                  highlight={['restricted','top_secret'].includes(data.data_sensitivity)} />
+                <CtxRow label="Data Lifetime (years)"   value={String(data.data_lifetime_years)}                      highlight={data.data_lifetime_years >= 10} />
+                <div style={{ padding: '8px 16px', fontSize: 12, color: MUTED2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Info size={12} />
+                  Context source: {data.context_defaulted ? 'default fallback — application context unavailable' : 'application record'}
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Page footer */}
+          <div style={{ fontSize: 11, color: MUTED2, textAlign: 'center', paddingBottom: 16, lineHeight: 1.5 }}>
+            {data.disclaimer}
           </div>
         </div>
-
-        {/* ── Business context used ───────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/5 p-5 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
-          <h2 className="text-white font-semibold text-sm flex items-center gap-2">
-            <Activity size={16} className="text-violet-400" />
-            Application Context Used for Scoring
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <ContextBadge label="Criticality"     value={data.business_criticality} active={['high','critical'].includes(data.business_criticality)} />
-            <ContextBadge label="Environment"     value={data.environment} />
-            <ContextBadge label="Internet Exposed" value={data.internet_exposed ? 'Yes' : 'No'} active={data.internet_exposed} />
-            <ContextBadge label="Confidentiality" value={data.confidentiality_requirement.replace(/_/g, ' ')} />
-            <ContextBadge label="Data Sensitivity" value={data.data_sensitivity} active={['restricted','top_secret'].includes(data.data_sensitivity)} />
-            <ContextBadge label="Data Lifetime"   value={`${data.data_lifetime_years} years`} active={data.data_lifetime_years >= 10} />
-          </div>
-        </div>
-
-        {/* ── Top priority findings ────────────────────────────────────────── */}
-        {data.top_findings.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white font-semibold flex items-center gap-2">
-                <Shield size={18} className="text-violet-400" />
-                Priority Findings
-                <span className="ml-1 text-white/30 text-sm font-normal">
-                  ({data.top_findings.length} highest-priority)
-                </span>
-              </h2>
-              <Link
-                to={`/inventory/${scanId}`}
-                className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
-              >
-                View all findings <ChevronRight size={12} />
-              </Link>
-            </div>
-            <div className="space-y-3">
-              {data.top_findings.map(f => (
-                <FindingCard key={f.finding_id} finding={f} scanId={scanId!} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Empty state ──────────────────────────────────────────────────── */}
-        {data.top_findings.length === 0 && (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8 text-center space-y-3">
-            <CheckCircle size={36} className="mx-auto text-emerald-400" />
-            <h3 className="text-white font-semibold">No Quantum Migration Required</h3>
-            <p className="text-white/40 text-sm max-w-sm mx-auto">
-              {data.summary_text || 'No quantum-vulnerable cryptography was detected in this scan.'}
-            </p>
-            <Link
-              to={`/inventory/${scanId}`}
-              className="inline-flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300 transition-colors"
-            >
-              View full inventory <ChevronRight size={14} />
-            </Link>
-          </div>
-        )}
-
-        {/* ── Footer disclaimer ────────────────────────────────────────────── */}
-        <p className="text-white/20 text-[10px] text-center leading-relaxed pb-4">
-          {data.disclaimer}
-        </p>
       </div>
     </div>
   );

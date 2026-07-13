@@ -121,6 +121,46 @@
 
 ---
 
+- [x] **Phase F — Migration Recommendation Engine** ✅
+  - [x] `app/services/kb/knowledge_base.py` — versioned, curated Migration Knowledge Base (v1.0)
+    - [x] Covers: RSA (key-establishment + signature), ECDSA, ECDH, ECC, DH, DSA, AES, ChaCha20, SHA-2, SHA-3, MD5, SHA-1, ML-KEM, ML-DSA, SLH-DSA, FN-DSA
+    - [x] Each entry: quantum_threat, recommended_target_category, recommended_algorithms, nist_standards, effort_estimate, prerequisites, migration_steps, testing_requirements, interoperability_notes, validation_checklist, timeline_guidance, technical_notes
+    - [x] NIST technically accurate: ML-KEM (FIPS 203) → key establishment only; ML-DSA (FIPS 204) / SLH-DSA (FIPS 205) / FN-DSA (FIPS 206) → digital signatures only
+    - [x] Symmetric/hash algorithms explicitly NOT treated as Shor-vulnerable
+  - [x] `app/services/kb/purpose_classifier.py` — deterministic cryptographic-purpose classifier
+    - [x] Unambiguous families (ECDSA, ECDH, DSA, DH, AES, ChaCha20, SHA-2, SHA-3, MD5, SHA-1, all PQC) classified by definition alone
+    - [x] RSA ambiguity resolved: signing contexts → digital_signature; encryption/key-transport contexts → key_establishment; no context → PURPOSE_UNKNOWN + manual review flag
+    - [x] RSA `usage_context="encryption"` correctly identified as asymmetric key-transport (not symmetric cipher), mapped to key_establishment migration path
+    - [x] ECC ambiguity resolved: ECDH via context → key_establishment; ECDSA via context → digital_signature; no context → PURPOSE_UNKNOWN
+    - [x] Evidence keyword hints as low-confidence fallback for RSA/ECC
+    - [x] Never invents purpose when evidence is insufficient
+  - [x] `app/services/recommender.py` — deterministic recommendation engine
+    - [x] Per-finding: classify purpose → look up KB → build structured MigrationRecommendation
+    - [x] Consumes Part 7 migration_priority and quantum_migration_score (never recalculates)
+    - [x] Unknown purpose → manual review, empty recommended_algorithms, no invented target
+    - [x] Scan-level aggregation: sorted by Part 7 priority, then by quantum_migration_score
+    - [x] No LLM. No second risk methodology. Fully deterministic.
+  - [x] `app/schemas/recommendation.py` — Pydantic v2 API schemas
+  - [x] `app/routers/recommendations.py` — `GET /api/recommendations?scan_id=`
+    - [x] Loads completed scan + findings from DB
+    - [x] Reads persisted Part 7 per-finding scores from RiskAssessment (no recalculation)
+    - [x] Returns ScanRecommendationResponse
+  - [x] `app/main.py` — recommendations router registered at `/api/recommendations`
+  - [x] `tests/test_recommender.py` — 49 comprehensive tests
+    - [x] Purpose classifier: ECDSA, ECDH, AES, SHA-2, MD5, SHA-1, DH, DSA, RSA signing, RSA key-exchange, RSA encryption, RSA no-context (unknown), ECC no-context (unknown), ML-KEM, ML-DSA
+    - [x] Recommender: RSA→KEM, RSA→sig (never ML-KEM), ECDSA→sig (never ML-KEM), AES not quantum-vulnerable, ChaCha20 not quantum-vulnerable, unknown→manual review+empty algorithms, unknown→no invented target, determinism (×2), RSA-sig ML-KEM strict, RSA-KEM no signature category, ECDSA never ML-KEM, symmetric not Shor-labelled, ECDH, DH, DSA, MD5, SHA-1, PQC already safe, Part 7 priority passthrough, no-priority returns None
+    - [x] Scan-level: mixed findings, empty scan, priority sort, determinism, KB version in summary
+  - [x] `frontend/src/services/recommendationsApi.ts` — typed API client
+  - [x] `frontend/src/pages/RecommendationsPage.tsx` — Migration recommendations UI
+    - [x] Sidebar (matches RiskPage), summary strip, filter tabs (All / Quantum / Safe / Review)
+    - [x] Expandable rows: purpose, confidence, current state, quantum threat, purpose reasoning, target + algorithms, prerequisites, migration steps, testing requirements, interoperability notes, timeline, technical notes, validation checklist, KB provenance, link to finding detail
+    - [x] Light enterprise SaaS design: white/off-white surfaces, subtle borders, semantic colours, restrained purple accent
+  - [x] `frontend/src/App.tsx` — route `/recommendations/:scanId` wired
+  - [x] `frontend/src/pages/RiskPage.tsx` — Migration sidebar link enabled; "Migration Plan →" CTA button in header
+  - [x] **Verification:** `pytest tests/` — **210/210 passed** (161 baseline + 49 new); `npm run build` — clean (0 errors)
+
+---
+
 ## Current Status
 
 | Phase | Status | Notes |
@@ -131,8 +171,7 @@
 | Phase C | ✅ Complete | Crypto Discovery Engine (107 tests) |
 | Phase D | ✅ Complete | CBOM Inventory UI + API |
 | Phase E | ✅ Complete | Quantum Migration Risk Engine (161 tests) |
-| Phase 5 | 🟡 Partial | Dashboard (placeholder), Upload+Inventory done |
-| Phase 6 | 🔴 Pending | Migration Recommendations + Roadmap |
+| Phase F | ✅ Complete | Migration KB + Recommendation Engine (210 tests) |
 | Phase 7 | 🔴 Pending | Reports |
 | Phase 8 | 🔴 Pending | PQC demo (bonus) |
 | Phase 9 | 🔴 Pending | Polish |

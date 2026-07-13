@@ -8,6 +8,7 @@ import DemoPage from './pages/DemoPage';
 import InventoryPage from './pages/InventoryPage';
 import FindingDetailPage from './pages/FindingDetailPage';
 import RiskPage from './pages/RiskPage';
+import RecommendationsPage from './pages/RecommendationsPage';
 
 /**
  * App — root router.
@@ -62,6 +63,9 @@ export default function App() {
 
         {/* Risk Analysis */}
         <Route path="/risk/:scanId" element={<RiskPage />} />
+
+        {/* Migration Recommendations */}
+        <Route path="/recommendations/:scanId" element={<RecommendationsPage />} />
 
         {/* Placeholder routes */}
         <Route path="/app/dashboard" element={<Dashboard />} />
