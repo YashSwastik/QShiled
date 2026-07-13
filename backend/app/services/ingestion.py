@@ -54,6 +54,9 @@ class IngestionResult:
     skipped_files: list[str] = field(default_factory=list)
     file_count: int = 0        # count of supported files discovered
     sha256: str = ""
+    # Maps relative_path → bytes; populated for scanner consumption.
+    # Kept in memory only during request processing — never persisted to disk.
+    file_contents: dict[str, bytes] = field(default_factory=dict)
 
 
 class IngestionError(Exception):
@@ -187,7 +190,7 @@ def _process_zip(
     sha: str,
     total_bytes: int,
 ) -> IngestionResult:
-    """Safely extract and enumerate ZIP, clean up temp dir."""
+    """Safely extract and enumerate ZIP, read file contents, clean up temp dir."""
     tmp_dir = tempfile.mkdtemp(prefix="qshield_ingest_")
     try:
         # Validate ZIP structure before extracting
@@ -207,14 +210,24 @@ def _process_zip(
             extract_dir = Path(tmp_dir)
             supported, skipped = _safe_zip_extract(zf, extract_dir)
 
+        # Build relative-path → bytes map while temp dir still exists
+        rel_paths = [str(Path(p).relative_to(tmp_dir)) for p in supported]
+        file_contents: dict[str, bytes] = {}
+        for abs_path, rel_path in zip(supported, rel_paths):
+            try:
+                file_contents[rel_path] = Path(abs_path).read_bytes()
+            except OSError:
+                pass
+
         return IngestionResult(
             upload_name=safe_name,
             upload_type="zip",
             total_bytes=total_bytes,
-            supported_files=[str(Path(p).relative_to(tmp_dir)) for p in supported],
+            supported_files=rel_paths,
             skipped_files=skipped,
             file_count=len(supported),
             sha256=sha,
+            file_contents=file_contents,
         )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -226,7 +239,7 @@ def _process_single_file(
     sha: str,
     total_bytes: int,
 ) -> IngestionResult:
-    """Accept a single allowed file; no disk write needed."""
+    """Accept a single allowed file; content held in memory."""
     return IngestionResult(
         upload_name=safe_name,
         upload_type="single_file",
@@ -235,4 +248,5 @@ def _process_single_file(
         skipped_files=[],
         file_count=1,
         sha256=sha,
+        file_contents={safe_name: raw},
     )

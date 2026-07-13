@@ -15,6 +15,7 @@ class UploadScanResponse(OrmBase):
     scan_type: ScanType
     status: ScanStatus
     file_count: int
+    finding_count: int
     upload_name: str
     upload_type: str
     error_message: str | None
