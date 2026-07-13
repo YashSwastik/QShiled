@@ -5,23 +5,25 @@ import OnboardingPage from './pages/OnboardingPage';
 import UploadPage from './pages/UploadPage';
 import Dashboard from './pages/Dashboard';
 import DemoPage from './pages/DemoPage';
+import InventoryPage from './pages/InventoryPage';
+import FindingDetailPage from './pages/FindingDetailPage';
 
 /**
  * App — root router.
  *
  * Route map:
- *   /                → Landing page (hero)
- *   /scan            → Project + Application onboarding (Phase 1/2)
- *   /upload          → Secure file upload (Phase B)
- *   /app/dashboard   → Dashboard (Phase 5 placeholder)
- *   /demo            → PQC demo (Phase 7 placeholder)
+ *   /                               → Landing page
+ *   /scan                           → Project + Application onboarding
+ *   /upload                         → Secure file upload
+ *   /inventory/:scanId              → Crypto Inventory (CBOM)
+ *   /inventory/:scanId/finding/:id  → Finding detail
+ *   /app/dashboard                  → Dashboard (placeholder)
+ *   /demo                           → PQC demo (placeholder)
  */
 
-/** Wrapper that places the Navbar above any page that needs it */
 function WithNav({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative">
-      {/* Navbar sits absolutely over the video on landing, stacked elsewhere */}
       <div className="absolute top-0 left-0 right-0 z-10">
         <Navbar />
       </div>
@@ -47,8 +49,14 @@ export default function App() {
         {/* Onboarding — create project + application */}
         <Route path="/scan" element={<OnboardingPage />} />
 
-        {/* Upload — secure file ingestion (Phase B) */}
+        {/* Upload — secure file ingestion */}
         <Route path="/upload" element={<UploadPage />} />
+
+        {/* Crypto Inventory (CBOM) */}
+        <Route path="/inventory/:scanId" element={<InventoryPage />} />
+
+        {/* Finding detail */}
+        <Route path="/inventory/:scanId/finding/:findingId" element={<FindingDetailPage />} />
 
         {/* Placeholder routes */}
         <Route path="/app/dashboard" element={<Dashboard />} />
@@ -58,8 +66,10 @@ export default function App() {
         <Route
           path="*"
           element={
-            <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center"
-                 style={{ background: 'var(--color-login-bg)', color: 'var(--color-text)' }}>
+            <div
+              className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center"
+              style={{ background: 'var(--color-login-bg)', color: 'var(--color-text)' }}
+            >
               <h1 className="font-heading text-3xl m-0" style={{ fontFamily: 'var(--font-heading)' }}>
                 404
               </h1>

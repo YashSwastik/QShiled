@@ -6,7 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 from app.schemas.common import OrmBase
 from app.models.scan import ScanStatus, ScanType
-from app.models.finding import QuantumStatus, DetectionMethod
+from app.models.finding import QuantumStatus, DetectionMethod, FindingCategory
 
 
 # ── Scan ──────────────────────────────────────────────────────────────────────
@@ -66,6 +66,7 @@ class FindingResponse(OrmBase):
     key_size: int | None
     usage_context: str | None
     quantum_status: QuantumStatus
+    category: FindingCategory
     detection_method: DetectionMethod
     confidence: float
     risk_score: float | None

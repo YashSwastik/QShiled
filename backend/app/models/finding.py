@@ -16,6 +16,15 @@ class QuantumStatus(str, enum.Enum):
     hybrid = "hybrid"            # Transitional hybrid scheme
 
 
+class FindingCategory(str, enum.Enum):
+    QUANTUM_VULNERABLE_PUBLIC_KEY = "QUANTUM_VULNERABLE_PUBLIC_KEY"
+    SYMMETRIC                     = "SYMMETRIC"
+    HASH                          = "HASH"
+    LEGACY_DEPRECATED             = "LEGACY_DEPRECATED"
+    POST_QUANTUM                  = "POST_QUANTUM"
+    UNKNOWN_REVIEW                = "UNKNOWN_REVIEW"
+
+
 class DetectionMethod(str, enum.Enum):
     regex = "regex"              # confidence ~0.7
     ast = "ast"                  # confidence ~0.9
@@ -47,6 +56,12 @@ class CryptoFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     quantum_status: Mapped[QuantumStatus] = mapped_column(
         SAEnum(QuantumStatus, native_enum=False),
         default=QuantumStatus.unknown,
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[FindingCategory] = mapped_column(
+        SAEnum(FindingCategory, native_enum=False),
+        default=FindingCategory.UNKNOWN_REVIEW,
         nullable=False,
         index=True,
     )

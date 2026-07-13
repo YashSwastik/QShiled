@@ -67,125 +67,29 @@
 
 ---
 
+- [x] **Phase C — Crypto Discovery Engine** ✅
+  - [x] `app/services/scanner/rules.py` — rule registry (RSA, ECC, ECDSA, ECDH, DH, DSA, AES, ChaCha20, SHA-2, SHA-3, SHA-1, MD5, DES, RC4, ML-KEM, ML-DSA, SLH-DSA, FN-DSA, TLS)
+  - [x] `app/services/scanner/source_scanner.py` — multi-language regex + Python AST scanner
+  - [x] `app/services/scanner/cert_scanner.py` — X.509 cert + PEM key parser (cryptography lib, confidence=1.0)
+  - [x] `app/services/scanner/engine.py` — orchestrator (cert → source fallback)
+  - [x] `app/services/ingestion.py` — extended: `file_contents` dict returned alongside metadata
+  - [x] `app/routers/upload.py` — full pipeline: ingest → scan → persist findings → return finding_count
+  - [x] `app/models/finding.py` — added `FindingCategory` enum + `category` column
+  - [x] Correct quantum classification: RSA/ECDSA/DH = vulnerable; AES-256/SHA-512 = safe; MD5/SHA-1 = legacy_deprecated (NOT quantum-vulnerable)
+  - [x] Evidence masking (PEM body, hex literals, line length limit)
+  - [x] 107 passing tests (107/107)
 
-- [ ] Design scanner plugin interface (`BaseScanner`)
-- [ ] Build **Source Code Scanner** (`source_scanner.py`)
-  - [ ] Python: regex + `ast` module detection
-  - [ ] JavaScript/TypeScript: regex patterns
-  - [ ] Java: regex patterns
-  - [ ] Generic: common crypto string patterns (any language)
-  - [ ] Return structured `Finding` objects with file + line + snippet + confidence
-- [ ] Build **Certificate Scanner** (`cert_scanner.py`)
-  - [ ] Parse X.509 PEM/DER using `cryptography` library
-  - [ ] Extract algorithm, key size, validity, subject
-  - [ ] Confidence = 1.0 (parsed from cert, not guessed)
-- [ ] Build **Config File Scanner** (`config_scanner.py`)
-  - [ ] Detect cipher suite strings in YAML/JSON/TOML/.conf/.ini/.env
-  - [ ] Detect TLS version settings
-- [ ] Unit tests for each scanner with real sample inputs
-- [ ] **Verification:** All scanner tests pass with correct detections
-
----
-
-## Phase 3 — Scan API Endpoints (DISCOVER → INVENTORY)
-
-- [ ] Implement `POST /api/v1/scans/` — multipart file upload, creates Scan record, triggers scanner
-  - [ ] File type validation (allowlist)
-  - [ ] File size limit (configurable, default 10MB per file)
-  - [ ] Run scanner in background (FastAPI BackgroundTasks)
-  - [ ] Save findings to DB
-- [ ] Implement `GET /api/v1/scans/` — paginated scan list
-- [ ] Implement `GET /api/v1/scans/{scan_id}` — scan detail + status
-- [ ] Implement `DELETE /api/v1/scans/{scan_id}`
-- [ ] Implement `GET /api/v1/scans/{scan_id}/findings` — paginated CBOM
-- [ ] Implement `GET /api/v1/scans/{scan_id}/findings/{finding_id}`
-- [ ] Integration tests for scan lifecycle
-- [ ] **Verification:** End-to-end test: upload sample file → get findings
-
----
-
-## Phase 4 — Risk Analyzer & Recommender (ANALYZE + PRIORITIZE + MIGRATE)
-
-- [ ] Implement `analyzer.py`
-  - [ ] Risk score formula: `base_weight × key_size_factor × exposure_factor × usage_factor`
-  - [ ] Per-finding risk score calculation
-  - [ ] Aggregate scan risk score
-  - [ ] Explainable output (risk_factors dict per finding)
-- [ ] Implement `recommender.py`
-  - [ ] Map each quantum-vulnerable algorithm to NIST PQC replacement
-  - [ ] Generate `MigrationItem` records
-  - [ ] Prioritize by risk score + usage context
-- [ ] Implement `GET /api/v1/scans/{scan_id}/roadmap`
-- [ ] Unit tests for risk scoring with known inputs
-- [ ] **Verification:** RSA-2048 key exchange scores high risk; AES-256 scores low
-
----
-
-## Phase 5 — Frontend Core (Dashboard + Upload + CBOM Viewer)
-
-- [ ] Set up React Router with routes: `/`, `/scan`, `/scans/:id`, `/scans/:id/cbom`, `/scans/:id/roadmap`, `/reports`
-- [ ] Create reusable UI components
-  - [ ] `Layout` (sidebar nav + header)
-  - [ ] `RiskBadge` (color-coded risk level chip)
-  - [ ] `AlgorithmBadge` (quantum-safe / vulnerable / unknown)
-  - [ ] `DemoDataBanner` (yellow banner for demo data)
-  - [ ] `StatusIndicator` (scan status with polling)
-- [ ] Build **Dashboard page** (`/`)
-  - [ ] Aggregate risk donut chart
-  - [ ] Findings by algorithm family bar chart
-  - [ ] Recent scans table
-- [ ] Build **Scan Upload page** (`/scan`)
-  - [ ] Drag-and-drop file upload (multiple files)
-  - [ ] File type indicators
-  - [ ] Scan progress indicator (polling)
-- [ ] Build **CBOM Viewer page** (`/scans/:id/cbom`)
-  - [ ] Sortable, filterable findings table
-  - [ ] Risk score column with color coding
-  - [ ] Click-through to finding detail
-- [ ] **Verification:** Frontend connects to backend; real scan data displayed
-
----
-
-## Phase 6 — Migration Roadmap & Reports (VALIDATE + REPORT)
-
-- [ ] Build **Roadmap page** (`/scans/:id/roadmap`)
-  - [ ] Prioritized migration cards
-  - [ ] NIST standard badges
-  - [ ] Effort indicators
-- [ ] Build **Reports page** (`/reports`)
-  - [ ] JSON CBOM export (`GET /api/v1/scans/{scan_id}/report`)
-  - [ ] Report metadata display
-- [ ] Implement `reporter.py`
-  - [ ] Assemble full CBOM JSON (OWASP CycloneDX-compatible format where feasible)
-  - [ ] Scan summary statistics
-- [ ] **Verification:** JSON report downloads correctly; roadmap shows ordered items
-
----
-
-## Phase 7 — PQC Demo (VALIDATE — Bonus)
-
-- [ ] Research liboqs-python availability for Python 3.14
-- [ ] If liboqs unavailable: use `cryptography` lib for available PQC primitives
-- [ ] Implement `/api/v1/demo/pqc`
-  - [ ] ML-KEM key generation + encapsulation demo (or available equivalent)
-  - [ ] Compare with classical RSA for timing
-- [ ] Build **PQC Demo page** (`/demo`)
-  - [ ] Side-by-side: classical vs. PQC
-  - [ ] Clear "DEMO" label on all demo operations
-- [ ] **Verification:** Demo runs without error; clearly labeled as demonstration
-
----
-
-## Phase 8 — Polish & Hackathon Readiness
-
-- [ ] Responsive design audit (works on 1080p + laptops)
-- [ ] Error handling audit (API errors shown properly in UI)
-- [ ] Loading states for all async operations
-- [ ] Seed database with a complete demo scan (labeled as DEMO DATA)
-- [ ] Write `README.md` with setup instructions
-- [ ] Record demo walkthrough video or screenshots
-- [ ] Final end-to-end test: fresh clone → `pip install` → `npm install` → both services start → upload file → get CBOM
-- [ ] **Verification:** Judges can run the project from README instructions alone
+- [x] **Phase D — CBOM Inventory UI** ✅
+  - [x] `GET /api/findings` — extended: category, search, sort_by, sort_dir filters
+  - [x] `GET /api/findings/summary` — aggregate counts by category, quantum_status, algorithm_family
+  - [x] `GET /api/findings/{id}` — full finding detail
+  - [x] `frontend/src/services/inventoryApi.ts` — typed API client
+  - [x] `frontend/src/components/FindingBadges.tsx` — CategoryBadge, QuantumBadge, ConfidenceBar, DetectionMethodLabel
+  - [x] `frontend/src/pages/InventoryPage.tsx` — CBOM table: search, filter, sort, paginate; summary cards; empty/loading/error states
+  - [x] `frontend/src/pages/FindingDetailPage.tsx` — per-finding deep-dive: classification, source location, masked evidence, detection method, quantum explanation (separate from legacy warning)
+  - [x] UploadPage success → navigate to `/inventory/:scanId` with finding_count
+  - [x] `App.tsx` routes: `/inventory/:scanId` and `/inventory/:scanId/finding/:findingId`
+  - [x] `npm run build` — clean (0 errors, 107 backend tests pass)
 
 ---
 
@@ -193,12 +97,13 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 0 | ✅ Complete | Foundation established |
-| Phase 1 | ⏳ Next | Database models + algorithm registry |
-| Phase 2 | 🔴 Pending | Scanner engine |
-| Phase 3 | 🔴 Pending | Scan API |
-| Phase 4 | 🔴 Pending | Risk + recommendations |
-| Phase 5 | 🔴 Pending | Frontend |
+| Phase 0 | ✅ Complete | Foundation |
+| Phase 1 | ✅ Complete | Backend + Database |
+| Phase B | ✅ Complete | Secure File Ingestion |
+| Phase C | ✅ Complete | Crypto Discovery Engine (107 tests) |
+| Phase D | ✅ Complete | CBOM Inventory UI + API |
+| Phase 4 | 🔴 Pending | Risk Analyzer + Recommender |
+| Phase 5 | 🟡 Partial | Dashboard (placeholder), Upload+Inventory done |
 | Phase 6 | 🔴 Pending | Roadmap + Reports |
 | Phase 7 | 🔴 Pending | PQC demo (bonus) |
 | Phase 8 | 🔴 Pending | Polish |

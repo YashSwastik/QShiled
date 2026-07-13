@@ -22,6 +22,7 @@ interface ScanResult {
   id: string;
   status: 'completed' | 'failed' | string;
   file_count: number;
+  finding_count: number;
   upload_name: string;
   upload_type: string;
   error_message: string | null;
@@ -240,17 +241,23 @@ export default function UploadPage() {
                     </div>
                     <div>
                       <div className="text-xs opacity-50 mb-0.5">Status</div>
-                      <div className="font-medium text-emerald-600">Ready for analysis</div>
+                      <div className="font-medium text-emerald-600">Completed</div>
                     </div>
                     <div>
-                      <div className="text-xs opacity-50 mb-0.5">Supported files discovered</div>
+                      <div className="text-xs opacity-50 mb-0.5">Files scanned</div>
                       <div className="font-semibold text-lg">{scanResult.file_count}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs opacity-50 mb-0.5">Crypto findings</div>
+                      <div className="font-semibold text-lg" style={{ color: scanResult.finding_count > 0 ? '#b91c1c' : '#15803d' }}>
+                        {scanResult.finding_count}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs opacity-50 mb-0.5">Upload type</div>
                       <div className="capitalize">{scanResult.upload_type?.replace('_', ' ')}</div>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <div className="text-xs opacity-50 mb-0.5">File</div>
                       <div className="truncate">{scanResult.upload_name}</div>
                     </div>
@@ -258,15 +265,21 @@ export default function UploadPage() {
                 </div>
 
                 <p className="text-xs opacity-40 max-w-sm">
-                  The Crypto Discovery Engine will scan these files in the next phase. No cryptographic analysis has occurred yet.
+                  {scanResult.finding_count > 0
+                    ? `The Crypto Discovery Engine detected ${scanResult.finding_count} cryptographic usages.`
+                    : 'No cryptographic usages were detected in these files.'}
                 </p>
 
                 <div className="flex gap-3 w-full">
                   <button onClick={reset} className="flex-1 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold border-0 cursor-pointer" style={{ background: 'rgba(25,40,55,0.08)', color: 'var(--color-text)' }}>
                     <RefreshCw size={14} /> Upload another
                   </button>
-                  <button onClick={() => navigate('/app/dashboard')} className="flex-1 rounded-full py-3 text-sm font-semibold text-white border-0 cursor-pointer" style={{ background: 'var(--color-accent)' }}>
-                    View Dashboard →
+                  <button
+                    onClick={() => navigate(`/inventory/${scanResult.id}`)}
+                    className="flex-1 rounded-full py-3 text-sm font-semibold text-white border-0 cursor-pointer"
+                    style={{ background: 'var(--color-accent)' }}
+                  >
+                    View Findings ({scanResult.finding_count}) →
                   </button>
                 </div>
               </motion.div>

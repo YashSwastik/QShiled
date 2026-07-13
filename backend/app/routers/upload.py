@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.scan import Scan, ScanStatus, ScanType
 from app.models.application import Application
-from app.models.finding import CryptoFinding, DetectionMethod
+from app.models.finding import CryptoFinding, DetectionMethod, FindingCategory
 from app.models.base import new_uuid
 from app.schemas.upload import UploadScanResponse
 from app.services.ingestion import ingest_upload, IngestionError
@@ -44,6 +44,14 @@ def _map_quantum_status(rqs: str) -> DBQuantumStatus:
         "hybrid":      DBQuantumStatus.hybrid,
     }
     return mapping.get(rqs, DBQuantumStatus.unknown)
+
+
+def _map_category(cat_str: str) -> FindingCategory:
+    """Map scanner Category value to DB FindingCategory enum."""
+    try:
+        return FindingCategory(cat_str)
+    except ValueError:
+        return FindingCategory.UNKNOWN_REVIEW
 
 
 def _map_detection_method(method: str) -> DBDetectionMethod:
@@ -151,6 +159,7 @@ def upload_for_scan(
             key_size=rf.key_size,
             usage_context=rf.usage_context,
             quantum_status=_map_quantum_status(rf.quantum_status.value if hasattr(rf.quantum_status, "value") else str(rf.quantum_status)),
+            category=_map_category(rf.category.value if hasattr(rf.category, "value") else str(rf.category)),
             detection_method=_map_detection_method(rf.detection_method),
             confidence=rf.confidence,
             nist_recommendation=rf.nist_recommendation or None,
