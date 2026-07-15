@@ -473,7 +473,7 @@ export default function OnboardingPage() {
 
                 <div className="flex gap-3 w-full">
                   <button
-                    onClick={() => navigate('/app/dashboard')}
+                    onClick={() => navigate('/dashboard')}
                     className="flex-1 rounded-full py-3 text-sm font-semibold border-0 cursor-pointer transition-all"
                     style={{ background: 'rgba(25,40,55,0.08)', color: 'var(--color-text)' }}
                   >

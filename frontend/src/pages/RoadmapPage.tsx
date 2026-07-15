@@ -84,7 +84,7 @@ const ec = (e: string) => EFFORT_CFG[e] ?? EFFORT_CFG.unknown;
 
 function Sidebar({ scanId }: { scanId?: string }) {
   const navItems = [
-    { key: 'overview',  label: 'Overview',         Icon: Home,         to: '/app/dashboard' },
+    { key: 'overview',  label: 'Dashboard',        Icon: Home,         to: '/dashboard' },
     { key: 'inventory', label: 'Crypto Inventory',  Icon: BookOpen,     to: scanId ? `/inventory/${scanId}` : '/upload' },
     { key: 'risk',      label: 'Risk Analysis',     Icon: BarChart2,    to: scanId ? `/risk/${scanId}` : '#' },
     { key: 'migration', label: 'Migration',         Icon: Map,          to: scanId ? `/recommendations/${scanId}` : '#' },

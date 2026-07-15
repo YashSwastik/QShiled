@@ -28,7 +28,7 @@ export default function Navbar() {
 
   function handleLaunch() {
     setMenuOpen(false);
-    navigate('/app/dashboard');
+    navigate('/dashboard');
   }
 
   function handleDemo() {

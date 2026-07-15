@@ -72,7 +72,7 @@ const FACTOR_WEIGHTS: Record<string, number> = {
 interface NavItem { label: string; icon: React.ReactNode; to: string; key: string }
 function buildNav(scanId?: string): NavItem[] {
   return [
-    { key: 'overview',   label: 'Overview',        icon: <Home size={15} />,         to: '/app/dashboard' },
+    { key: 'overview',   label: 'Dashboard',       icon: <Home size={15} />,         to: '/dashboard' },
     { key: 'inventory',  label: 'Crypto Inventory', icon: <BookOpen size={15} />,     to: scanId ? `/inventory/${scanId}` : '/upload' },
     { key: 'risk',       label: 'Risk Analysis',    icon: <BarChart2 size={15} />,    to: scanId ? `/risk/${scanId}` : '#' },
     { key: 'migration',  label: 'Migration',        icon: <Map size={15} />,          to: scanId ? `/recommendations/${scanId}` : '#' },

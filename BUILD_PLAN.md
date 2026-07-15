@@ -230,6 +230,128 @@
 
 ---
 
+## Phase H — Executive Dashboard ✅
+
+### Architecture
+
+Single aggregated backend endpoint (`GET /api/dashboard?scan_id=<id>`) derives all
+dashboard metrics from real persisted DB state.  No data is fabricated or re-calculated
+outside the existing engines.
+
+#### Backend
+
+| File | Purpose |
+|------|---------|
+| `app/routers/dashboard.py` | New router; aggregates findings, risk, roadmap from DB |
+| `app/main.py` | Registered `dashboard_router` at `/api/dashboard` |
+| `tests/test_dashboard.py` | 26 focused dashboard tests |
+
+**Endpoints:**
+- `GET /api/dashboard/scans` — list all scans with application name (for selector)
+- `GET /api/dashboard?scan_id=<id>` — full aggregated dashboard summary
+
+**Data sources (all real DB reads, no engine re-invocation):**
+| Metric | Source |
+|--------|--------|
+| Total / vulnerable / safe findings | `crypto_findings` table |
+| Algorithm distribution | `crypto_findings.algorithm_family` counts |
+| Severity distribution | `risk_assessments.per_finding_scores[].quantum_migration_severity` |
+| Avg risk score | `risk_assessments.per_finding_scores[].quantum_migration_score` |
+| Migration progress / stage counts | `roadmap_items.stage` (canonical persisted column) |
+| Wave distribution | `roadmap_items.priority` (1/2/3 set by roadmap engine) |
+| Top findings | highest `quantum_migration_score` with linked `finding_id` |
+| Top assets | application aggregation from findings + roadmap |
+| Scan metadata | `scans` table |
+
+#### Quantum Readiness Score
+
+**QShield Deterministic Readiness Indicator — NOT an official NIST score or compliance certification.**
+
+```
+S_exposure = (total_findings − quantum_vulnerable_findings) / total_findings
+             → 1.0 when total_findings = 0
+
+S_risk_inv = 1 − (avg_quantum_migration_score / 100)
+             → 1.0 when no per-finding risk scores exist
+
+S_progress  = migrated_roadmap_items / total_roadmap_items
+             → 1.0 when total_roadmap_items = 0
+
+Quantum Readiness Score = round(
+    60 × S_exposure
+  + 25 × S_risk_inv
+  + 15 × S_progress
+)  clamped to [0, 100]
+```
+
+Readiness labels:
+
+| Score | Label |
+|-------|-------|
+| 90–100 | High Readiness |
+| 70–89  | Moderate-High Readiness |
+| 50–69  | Moderate Readiness |
+| 30–49  | Limited Readiness |
+| 0–29   | Low Readiness |
+
+Score is **live**: adding a vulnerable finding decreases it; advancing a roadmap item to
+MIGRATED increases it; removing risk scores resets it deterministically.
+
+#### Frontend
+
+| File | Purpose |
+|------|---------|
+| `src/services/dashboardApi.ts` | Typed API client (`listDashboardScans`, `getDashboardSummary`) |
+| `src/pages/Dashboard.tsx` | Full executive dashboard page |
+| `src/App.tsx` | Route `/app/dashboard` wired |
+
+**UI structure:**
+1. **Readiness Hero** — SVG ring gauge, score, readiness label, expandable methodology panel (shows exact formula components per scan)
+2. **Posture Summary** — compact 5-metric strip (Total / Quantum Relevant / Critical / High / Safe); scan name, completion date, status badge
+3. **Security Posture Analytics** — Algorithm Distribution (ranked horizontal bars) + Risk/Severity Distribution (semantic horizontal bars); both link to Inventory / Risk Analysis
+4. **Migration Status** — progress bar, 7-node lifecycle display with real per-stage counts from `roadmap_items.stage`, wave summary (Wave 1 NOW / Wave 2 NEXT / Wave 3 LATER); links to Roadmap
+5. **Priority Attention** — Top Priority Assets (severity + relevant findings + wave) + Highest-Risk Findings (algorithm, file, risk score, severity — each row links to finding detail)
+6. **Scan selector** — dropdown for all known scans; auto-selects most recent completed scan
+
+**Implemented states:**
+- ✅ Loading (skeleton layout matching dashboard structure)
+- ✅ Empty project / no scans (onboarding state: "No security posture data yet" + Run First Scan)
+- ✅ API error (contained error panel with Retry)
+- ✅ Scanning in progress (compact info banner)
+- ✅ Completed scan with no crypto findings (informational notice; readiness = 100 by formula)
+- ✅ Multiple findings / multiple risk levels
+- ✅ Responsive layout (wrapping flex, scrollable lifecycle)
+- ✅ Accessible: ARIA roles on charts, progressbar roles, aria-labels on controls
+
+**Navigation — all buttons lead to working existing pages:**
+- Readiness → Risk Analysis
+- Algorithm Distribution → Crypto Inventory
+- Risk Distribution → Risk Analysis
+- Migration Progress → Migration Roadmap
+- Top Finding rows → Finding Detail (`/inventory/:scanId/finding/:id`)
+- Run New Scan → `/scan` (Onboarding)
+
+### Testing
+
+- **Focused dashboard tests:** 26/26 passed (`tests/test_dashboard.py`)
+  - Empty project (no scans)
+  - Completed scan, no findings (readiness = 100)
+  - Vulnerable findings reduce readiness
+  - Safe findings increase readiness
+  - Severity distribution from persisted RiskAssessment
+  - Multiple risk levels
+  - _compute_readiness formula unit tests (7 cases)
+  - Readiness decreases when finding added
+  - Readiness increases when roadmap stage advanced to MIGRATED
+  - Stage distribution reflects persisted stages
+  - Wave distribution matches roadmap priority field
+  - Dashboard GET does NOT reset roadmap stages (regression guard)
+  - 404 on unknown scan_id
+- **Full backend suite:** 279/279 passed
+- **Frontend:** `npm run build` — clean, exit 0, 0 TypeScript errors
+
+---
+
 ## Current Status
 
 | Phase | Status | Notes |
@@ -242,6 +364,6 @@
 | Phase E | ✅ Complete | Quantum Migration Risk Engine (161 tests) |
 | Phase F | ✅ Complete | Migration KB + Recommendation Engine (210 tests) |
 | Phase G | ✅ Complete | Migration Roadmap Engine (253 tests); stage persistence fix; Wave/Lifecycle UI |
-| Phase 7 | 🔴 Pending | Reports |
-| Phase 8 | 🔴 Pending | PQC demo (bonus) |
-| Phase 9 | 🔴 Pending | Polish |
+| Phase H | ✅ Complete | Executive Dashboard (279 tests); Quantum Readiness Score; all UI states |
+| PQC Lab | 🔴 Pending | Placeholder only (`/demo`) |
+| Reports | 🔴 Pending | Placeholder only |

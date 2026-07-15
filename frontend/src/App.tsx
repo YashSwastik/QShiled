@@ -23,7 +23,8 @@ import RoadmapPage from './pages/RoadmapPage';
  *   /risk/:scanId                   → Quantum Migration Risk Analysis
  *   /recommendations/:scanId        → Migration Recommendations
  *   /roadmap/:scanId                → Migration Roadmap
- *   /app/dashboard                  → Dashboard (placeholder)
+ *   /dashboard                     → Executive Dashboard
+ *   /app/dashboard                  → redirects to /dashboard (alias)
  *   /demo                           → PQC demo (placeholder)
  */
 
@@ -73,7 +74,9 @@ export default function App() {
         {/* Migration Roadmap */}
         <Route path="/roadmap/:scanId" element={<RoadmapPage />} />
 
-        {/* Placeholder routes */}
+        {/* Dashboard — executive overview */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Backward-compat alias for /app/dashboard links already in the wild */}
         <Route path="/app/dashboard" element={<Dashboard />} />
         <Route path="/demo" element={<DemoPage />} />
 
