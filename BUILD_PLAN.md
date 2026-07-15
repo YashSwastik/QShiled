@@ -161,6 +161,75 @@
 
 ---
 
+- [x] **Phase G — Migration Roadmap Engine** ✅
+  - [x] `app/services/roadmap_engine.py` — deterministic wave-assignment engine
+    - [x] Consumes Part 7 risk scores/migration_priority (never recalculates them)
+    - [x] Consumes Part 8 recommendation engine (purpose + KB effort)
+    - [x] Consumes application context (internet_exposed, confidentiality_requirement, business_criticality)
+    - [x] Wave 1: immediate priority OR score ≥ 65 OR (quantum + internet + long_term) → Critical
+    - [x] Wave 2: near_term priority OR score 40–64 OR (quantum + high/critical criticality) → High
+    - [x] Wave 3: long_term/low priority OR score < 40 → Planned
+    - [x] Context elevation: internet-facing + long_term + quantum concern → always Wave 1
+    - [x] Criticality elevation: critical/high business + quantum → Wave 3 → Wave 2
+    - [x] Symmetric/legacy findings not elevated by internet_exposed rule (not Shor-vulnerable)
+    - [x] Per-item: deterministic reason, recommended_action (from Part 8 KB), dependency detection
+    - [x] Wave summaries (count + description)
+    - [x] Ordered: wave ASC, then quantum_migration_score DESC
+    - [x] No hardcoded roadmap items whatsoever
+  - [x] `app/schemas/roadmap_schema.py` — Pydantic v2 API schemas (ScanRoadmapResponse, RoadmapItemSchema, WaveSummarySchema, RoadmapItemStatusUpdate)
+  - [x] `app/routers/roadmap.py` — real roadmap API (replaces stub)
+    - [x] `GET /api/roadmap?scan_id=` — generates roadmap from live data; overlays persisted user stage
+    - [x] `PATCH /api/roadmap/items/{finding_id}` — forward-only stage transitions; returns 422 on invalid/backward stage
+    - [x] Stage persisted to `roadmap_items` table; survives roadmap recalculation
+    - [x] User progress preserved: wave recalculates from current upstream data, stage kept
+    - [x] Upsert idiom: new findings get DISCOVERED; existing rows keep user stage
+  - [x] `app/database.py` — `roadmap_items.stage VARCHAR(32)` added via `_safe_migrate_sqlite()`
+  - [x] `app/main.py` — real roadmap router registered; stub removed
+  - [x] `tests/test_roadmap.py` — 38 focused tests
+    - [x] Wave 1: immediate priority, internet+long_term elevation, score ≥ 65, Immediate action prefix
+    - [x] Wave 2: near_term priority, score 40–64, critical-criticality elevation, Near-term prefix
+    - [x] Wave 3: low/long_term priority, Planned prefix
+    - [x] Symmetric (AES-256, AES-128) and legacy (MD5, SHA-1) NOT Wave 1 even with critical internet context
+    - [x] Application context sensitivity: same finding, different context → different wave
+    - [x] Risk score sensitivity: score < 40 → Wave 3; score > 65 → Wave 1
+    - [x] Recommendation consumed: algorithms come from Part 8 KB; manual review → correct action
+    - [x] Stage transitions: advance_stage() correct 7-step lifecycle; MIGRATED → None
+    - [x] Invalid stages not in VALID_STAGES
+    - [x] Determinism: same input → same wave, algorithms, action (×2)
+    - [x] Empty scan: 0 items, 0 per wave summary
+    - [x] HTTP API: 404 unknown scan, 404 no roadmap item, 422 invalid stage
+  - [x] `tests/test_phase1.py` — updated stub test: `/api/roadmap` now requires scan_id (422, not 200)
+  - [x] `frontend/src/services/roadmapApi.ts` — typed API client (getRoadmap, updateRoadmapItemStage, MIGRATION_STAGES)
+  - [x] `frontend/src/pages/RoadmapPage.tsx` — Migration Roadmap UI
+    - [x] Wave 1/2/3 groups with semantic colour-coded borders and badges
+    - [x] Expandable item cards: wave reason, recommended action, target algorithms, NIST standards, dependencies, stage timeline
+    - [x] Stage selector: forward-only dropdown; optimistic update + backend PATCH; error display
+    - [x] Stage lifecycle visualisation: ✓ done / current / future pills
+    - [x] Wave summary strip (count + wave description)
+    - [x] Sidebar (matching RiskPage/RecommendationsPage), header CTA buttons
+    - [x] Loading / error / empty states
+    - [x] No hardcoded wave assignments or recommendation content
+  - [x] `frontend/src/App.tsx` — route `/roadmap/:scanId` wired
+  - [x] `frontend/src/pages/RiskPage.tsx` — Roadmap nav item + "Roadmap" CTA header button
+  - [x] `frontend/src/pages/RecommendationsPage.tsx` — Roadmap nav item + "Roadmap" CTA header button
+  - [x] **Stage Persistence Bug Fix:**
+    - **Root cause:** `_load_stage_overrides` returned `{finding_id: row.status}` where `row.status` is the 4-value ORM enum (`pending`/`in_progress`/`completed`/`deferred`). Those values are NOT in `VALID_STAGES` (the 7-step canonical strings). The overlay silently nooped and roadmap regeneration reset each item to `DISCOVERED`.
+    - **Fix:** Added `stage: Mapped[str]` column (VARCHAR 32, default `DISCOVERED`) to `RoadmapItem` ORM model. PATCH now writes `row.stage = new_stage` (canonical string). `_load_stage_overrides` now reads `row.stage`. `_persist_roadmap_items` sets `stage="DISCOVERED"` on new rows only — never overwrites `stage` for existing rows.
+    - **Test setup fix:** Helper `_create_completed_scan_with_findings` was using production `SessionLocal`; corrected to `tests.conftest.TEST_SESSION` (same DB as TestClient).
+  - [x] **Regression tests (`TestStagePersistenceRegression`, 5 tests):**
+    - `test_a_new_item_starts_discovered` — new item defaults to DISCOVERED
+    - `test_b_patched_stage_survives_get` — PATCH ASSESSED → GET → still ASSESSED (the exact regression)
+    - `test_c_recalculation_preserves_planned` — PATCH PLANNED → GET twice → still PLANNED
+    - `test_d_backward_stage_rejected` — backward transition rejected with 422
+    - `test_e_invalid_stage_value_422` — invalid stage value rejected with 422
+  - [x] **Roadmap UI improvements:**
+    - `WaveTimeline` component: horizontal NOW → NEXT → LATER cards with arrow connectors; large item-count, priority label, and time-horizon description from backend `wave_summaries`; stacks gracefully on narrow screens
+    - `LifecycleBar` component: 7 connected stage nodes (DISCOVERED…MIGRATED) with bubble showing real per-stage counts from persisted roadmap items; grey when empty, coloured when items at that stage
+    - `StageSelector` updated: non-optimistic — waits for backend PATCH response, updates UI from `updated.status` returned by server; shows "Saving…" while in-flight; does not falsely display a stage on failure
+  - [x] **Verification:** `pytest tests/` — **253/253 passed** (210 baseline + 43 roadmap incl. 5 persistence); `npm run build` — clean (0 errors, exit 0)
+
+---
+
 ## Current Status
 
 | Phase | Status | Notes |
@@ -172,6 +241,7 @@
 | Phase D | ✅ Complete | CBOM Inventory UI + API |
 | Phase E | ✅ Complete | Quantum Migration Risk Engine (161 tests) |
 | Phase F | ✅ Complete | Migration KB + Recommendation Engine (210 tests) |
+| Phase G | ✅ Complete | Migration Roadmap Engine (253 tests); stage persistence fix; Wave/Lifecycle UI |
 | Phase 7 | 🔴 Pending | Reports |
 | Phase 8 | 🔴 Pending | PQC demo (bonus) |
 | Phase 9 | 🔴 Pending | Polish |

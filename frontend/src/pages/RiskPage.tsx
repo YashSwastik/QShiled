@@ -18,7 +18,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Shield, AlertTriangle, ArrowLeft, Info,
   ChevronDown, ChevronUp, RefreshCw,
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText,
+  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock,
   AlertCircle, CheckCircle, HelpCircle, ChevronRight,
 } from 'lucide-react';
 import { getRiskAnalysis } from '../services/riskApi';
@@ -76,6 +76,7 @@ function buildNav(scanId?: string): NavItem[] {
     { key: 'inventory',  label: 'Crypto Inventory', icon: <BookOpen size={15} />,     to: scanId ? `/inventory/${scanId}` : '/upload' },
     { key: 'risk',       label: 'Risk Analysis',    icon: <BarChart2 size={15} />,    to: scanId ? `/risk/${scanId}` : '#' },
     { key: 'migration',  label: 'Migration',        icon: <Map size={15} />,          to: scanId ? `/recommendations/${scanId}` : '#' },
+    { key: 'roadmap',    label: 'Roadmap',          icon: <Clock size={15} />,        to: scanId ? `/roadmap/${scanId}` : '#' },
     { key: 'pqclab',     label: 'PQC Lab',          icon: <FlaskConical size={15} />, to: '/demo' },
     { key: 'reports',    label: 'Reports',          icon: <FileText size={15} />,     to: '#' },
   ];
@@ -752,6 +753,19 @@ export default function RiskPage() {
                 }}
               >
                 <Map size={13} /> Migration Plan
+              </button>
+            )}
+            {scanId && (
+              <button
+                onClick={() => navigate(`/roadmap/${scanId}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 12px', borderRadius: 7,
+                  border: `1px solid ${ACCENT}40`, background: `${ACCENT}08`,
+                  fontSize: 13, cursor: 'pointer', color: ACCENT, fontWeight: 600,
+                }}
+              >
+                <Clock size={13} /> Roadmap
               </button>
             )}
           </div>

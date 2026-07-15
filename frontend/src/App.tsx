@@ -9,6 +9,7 @@ import InventoryPage from './pages/InventoryPage';
 import FindingDetailPage from './pages/FindingDetailPage';
 import RiskPage from './pages/RiskPage';
 import RecommendationsPage from './pages/RecommendationsPage';
+import RoadmapPage from './pages/RoadmapPage';
 
 /**
  * App — root router.
@@ -20,6 +21,8 @@ import RecommendationsPage from './pages/RecommendationsPage';
  *   /inventory/:scanId              → Crypto Inventory (CBOM)
  *   /inventory/:scanId/finding/:id  → Finding detail
  *   /risk/:scanId                   → Quantum Migration Risk Analysis
+ *   /recommendations/:scanId        → Migration Recommendations
+ *   /roadmap/:scanId                → Migration Roadmap
  *   /app/dashboard                  → Dashboard (placeholder)
  *   /demo                           → PQC demo (placeholder)
  */
@@ -66,6 +69,9 @@ export default function App() {
 
         {/* Migration Recommendations */}
         <Route path="/recommendations/:scanId" element={<RecommendationsPage />} />
+
+        {/* Migration Roadmap */}
+        <Route path="/roadmap/:scanId" element={<RoadmapPage />} />
 
         {/* Placeholder routes */}
         <Route path="/app/dashboard" element={<Dashboard />} />

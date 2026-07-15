@@ -79,6 +79,15 @@ class RoadmapItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    # Canonical 7-step migration stage string (DISCOVERED … MIGRATED).
+    # This is the authoritative field — the status enum above is kept for
+    # backward-compat with existing queries but is NOT used for stage reads.
+    stage: Mapped[str] = mapped_column(
+        String(32),
+        default="DISCOVERED",
+        nullable=False,
+        server_default="DISCOVERED",
+    )
 
     # Relationships
     finding: Mapped["CryptoFinding"] = relationship(  # noqa: F821

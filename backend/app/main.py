@@ -10,7 +10,8 @@ from app.routers import projects, scans, findings
 from app.routers import upload as upload_router
 from app.routers import risk as risk_router_module
 from app.routers import recommendations as recommendations_router_module
-from app.routers.stubs import roadmap_router, pqc_lab_router, reports_router
+from app.routers import roadmap as roadmap_router_module
+from app.routers.stubs import pqc_lab_router, reports_router
 
 settings = get_settings()
 
@@ -67,7 +68,7 @@ app.include_router(findings.router, prefix=API_PREFIX)
 # Phase stubs (wired, return 200 with "not yet implemented" message)
 app.include_router(risk_router_module.router, prefix=API_PREFIX)
 app.include_router(recommendations_router_module.router, prefix=API_PREFIX)
-app.include_router(roadmap_router, prefix=API_PREFIX)
+app.include_router(roadmap_router_module.router, prefix=API_PREFIX)
 app.include_router(pqc_lab_router, prefix=API_PREFIX)
 app.include_router(reports_router, prefix=API_PREFIX)
 

@@ -216,7 +216,15 @@ def test_stub_endpoints(client):
     r = client.get("/api/risk")
     assert r.status_code == 422  # missing required scan_id param
 
+    # /api/roadmap is now a real endpoint (Phase G); calling without scan_id returns 422
+    r = client.get("/api/roadmap")
+    assert r.status_code == 422  # missing required scan_id param
+
+    # /api/recommendations is now a real endpoint (Phase F); calling without scan_id returns 422
+    r = client.get("/api/recommendations")
+    assert r.status_code == 422  # missing required scan_id param
+
     # Remaining stubs still return 200 with a phase/detail key
-    for path in ["/api/roadmap", "/api/pqc-lab", "/api/reports"]:
+    for path in ["/api/pqc-lab", "/api/reports"]:
         r = client.get(path)
         assert r.status_code == 200 and "phase" in r.json()

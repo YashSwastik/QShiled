@@ -13,7 +13,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, RefreshCw, AlertTriangle, CheckCircle,
   HelpCircle, Info, ChevronDown, ChevronUp,
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText,
+  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock,
   Shield, AlertCircle, ChevronRight,
 } from 'lucide-react';
 import QShieldLogo from '../components/QShieldLogo';
@@ -80,6 +80,7 @@ function Sidebar({ scanId }: { scanId?: string }) {
     { key: 'inventory',     label: 'Crypto Inventory', Icon: BookOpen,     to: scanId ? `/inventory/${scanId}` : '/upload' },
     { key: 'risk',          label: 'Risk Analysis',    Icon: BarChart2,    to: scanId ? `/risk/${scanId}` : '#' },
     { key: 'migration',     label: 'Migration',        Icon: Map,          to: scanId ? `/recommendations/${scanId}` : '#', active: true },
+    { key: 'roadmap',       label: 'Roadmap',          Icon: Clock,        to: scanId ? `/roadmap/${scanId}` : '#' },
     { key: 'pqclab',        label: 'PQC Lab',          Icon: FlaskConical, to: '/demo' },
     { key: 'reports',       label: 'Reports',          Icon: FileText,     to: '#' },
   ];
@@ -596,6 +597,15 @@ export default function RecommendationsPage() {
             }}>
               <ArrowLeft size={13} /> Inventory
             </button>
+            {scanId && (
+              <button onClick={() => navigate(`/roadmap/${scanId}`)} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+                borderRadius: 7, border: `1px solid ${ACCENT}40`, background: `${ACCENT}08`,
+                fontSize: 13, cursor: 'pointer', color: ACCENT, fontWeight: 600,
+              }}>
+                <Clock size={13} /> Roadmap
+              </button>
+            )}
           </div>
         </div>
 
