@@ -352,6 +352,150 @@ MIGRATED increases it; removing risk scores resets it deterministically.
 
 ---
 
+## Phase I — PQC Lab ✅
+
+### Architecture
+
+Real post-quantum cryptographic operations using `cryptography` 49.0.0 (PyCA / OpenSSL 3.x backend).
+No additional PQC library installed — the existing project dependency is sufficient.
+All operations are ephemeral in-memory. No private keys, shared secrets, or sensitive material
+is persisted, returned in API responses, or logged.
+
+### Library
+
+| Item | Detail |
+|---|---|
+| Library | `cryptography` (PyCA) |
+| Version | 49.0.0 |
+| OpenSSL backend | Yes (via rust_openssl bindings) |
+| Platform | Windows 11, Python 3.14.3 |
+| New dependency added | None |
+
+### Implemented Algorithms
+
+#### ML-KEM (FIPS 203) — Key Encapsulation Mechanism
+
+| Parameter Set | Public Key | Ciphertext | Shared Secret | Security Level |
+|---|---|---|---|---|
+| ML-KEM-768 | 1184 B | 1088 B | 32 B | Level 3 (AES-192) |
+| ML-KEM-1024 | 1568 B | 1568 B | 32 B | Level 5 (AES-256) |
+
+Operations: key generation · encapsulation · decapsulation · shared-secret equality verification
+
+**API note:** `pub_key.encapsulate()` returns `(shared_secret, ciphertext)` — shared_secret is the first element.
+
+#### ML-DSA (FIPS 204) — Digital Signatures
+
+| Parameter Set | Public Key | Max Signature | Security Level |
+|---|---|---|---|
+| ML-DSA-44 | 1312 B | 2420 B | Level 2 (AES-128) |
+| ML-DSA-65 | 1952 B | 3309 B | Level 3 (AES-192) |
+| ML-DSA-87 | 2592 B | 4627 B | Level 5 (AES-256) |
+
+Operations: key generation · signing · verification · tampered-message verification failure
+
+#### SLH-DSA (FIPS 205)
+
+Not available in the current `cryptography` build on this platform.
+Shown as explicitly unavailable in the UI. No fake controls provided.
+
+### Measurement Methodology
+
+- All timings: `time.perf_counter()` (Python standard library)
+- Measurements are single-run or multi-iteration (5/10/25/50) — environment-specific
+- Returns: avg_ms, min_ms, max_ms for benchmark mode
+- Disclaimer shown in UI: results depend on hardware, OS, runtime, system load, benchmark methodology
+
+### Backend Files
+
+| File | Role |
+|---|---|
+| `app/services/pqc_lab_service.py` | Service layer — all cryptographic operations, benchmarking, capability discovery |
+| `app/routers/pqc_lab.py` | API router — capabilities, KEM demo, signature demo, benchmark |
+| `app/main.py` | Replaced stub `pqc_lab_router` with real `pqc_lab_router_module.router` |
+| `tests/test_pqc_lab.py` | 62 focused tests |
+| `tests/test_phase1.py` | Updated legacy stub assertion to verify real capabilities endpoint |
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `GET /api/pqc-lab/capabilities` | GET | Supported algorithms, parameter sets, environment metadata |
+| `POST /api/pqc-lab/kem/demo` | POST | ML-KEM round-trip — keygen, encap, decap, shared-secret verify |
+| `POST /api/pqc-lab/signature/demo` | POST | ML-DSA sign + verify + optional tamper test |
+| `POST /api/pqc-lab/benchmark` | POST | Bounded multi-iteration benchmark (5/10/25/50 iterations only) |
+
+### Frontend Files
+
+| File | Role |
+|---|---|
+| `src/services/pqcLabApi.ts` | Typed API client for all four PQC Lab endpoints |
+| `src/pages/DemoPage.tsx` | Full PQC Lab interactive workspace |
+| `src/App.tsx` | Route `/demo` already wired |
+
+### UI Structure (implemented)
+
+1. **Header / Runtime Status**: real library, version, Python, platform, backend readiness from `/api/pqc-lab/capabilities`
+2. **Algorithm Family Selector**: ML-KEM (supported), ML-DSA (supported), SLH-DSA (explicitly unavailable, disabled card)
+3. **Parameter Set Selector**: populated from backend capabilities — never hardcoded
+4. **Mode Toggle**: Interactive Demo / Benchmark
+5. **Two-Column Workspace**: interactive operation (65%) + algorithm details panel (35%)
+6. **ML-KEM Workflow**: Keypair → Encapsulate → Decapsulate → ✓ Shared Secret Match (step visualizer)
+7. **ML-DSA Workflow**: Message input → Keypair → Sign → Verify → ✓ Signature Valid; tamper test → ✕ Signature Invalid
+8. **Measured This Run**: compact metric cards (Key Gen / Encap/Sign / Decap/Verify / Ciphertext/Signature size)
+9. **Object Sizes**: public key, private key (size only), ciphertext/signature byte lengths
+10. **Benchmark Table**: Operation | Average | Minimum | Maximum | Runs (real backend data)
+11. **Technical Details**: collapsible, library/version/platform/algo/measurement method
+12. **Disclaimers**: clear statements — not FIPS certified, demo only, not production migration
+
+### UI States (all implemented)
+
+- ✅ Loading: "Checking PQC runtime capabilities…"
+- ✅ Backend unavailable: clear error panel with Retry
+- ✅ SLH-DSA unavailable: disabled card with explanation text
+- ✅ Operation in-progress: button shows spinner, disabled
+- ✅ KEM success: "Key Establishment Successful" green banner
+- ✅ Signature valid: "Signature Valid" green banner
+- ✅ Tamper test: "Signature Invalid for Modified Message" — red banner labeled "expected to fail"
+- ✅ API error: contained error state
+- ✅ Page refresh: route loads correctly
+
+### Testing
+
+- **Focused PQC Lab tests:** 62/62 passed (`tests/test_pqc_lab.py`)
+  - Capabilities endpoint structure and real content
+  - ML-KEM-768 and ML-KEM-1024 round-trip: success, timings ≥ 0, sizes match spec
+  - ML-DSA-44/-65/-87: sign+verify success, tamper correctly fails, sizes match spec
+  - No private key or shared secret in any response
+  - Benchmark: statistics structure, real values, bounded iteration enforcement
+  - Service-layer unit tests (direct Python, not through HTTP)
+  - Invalid param set → 422; invalid iteration count → 422; empty message → 422
+- **Full backend suite:** 341/341 passed
+- **Frontend:** `npm run build` — clean, exit 0, 0 TypeScript errors
+
+### Functional Verification (browser)
+
+All the following were verified live against the running backend:
+- ✅ PQC Lab page loads at `/demo`
+- ✅ Runtime strip shows real `cryptography: 49.0.0 | Python: 3.14.3 | Windows | PQC Backend Ready`
+- ✅ ML-KEM-768 demo executes and shows "Key Establishment Successful" with real timings
+- ✅ ML-KEM-1024 demo executes
+- ✅ ML-DSA-65 sign+verify shows "Signature Valid"
+- ✅ Tamper test shows "Signature Invalid for Modified Message" (expected cryptographic behavior)
+- ✅ Benchmark table renders with real avg/min/max values
+- ✅ SLH-DSA shown as unavailable with explanation — no active controls
+- ✅ PQC Lab highlighted as active in sidebar
+- ✅ Page refreshes correctly at `/demo`
+
+### Limitations
+
+- SLH-DSA not available in `cryptography` 49.0.0 on this platform
+- Measurements are environment-specific — not universal benchmarks
+- No classical-vs-PQC comparison implemented (no reliable classical KEM/sig in existing deps for fair comparison)
+- PQC Lab does not automatically perform migration — demonstration only
+
+---
+
 ## Current Status
 
 | Phase | Status | Notes |
@@ -365,5 +509,5 @@ MIGRATED increases it; removing risk scores resets it deterministically.
 | Phase F | ✅ Complete | Migration KB + Recommendation Engine (210 tests) |
 | Phase G | ✅ Complete | Migration Roadmap Engine (253 tests); stage persistence fix; Wave/Lifecycle UI |
 | Phase H | ✅ Complete | Executive Dashboard (279 tests); Quantum Readiness Score; all UI states |
-| PQC Lab | 🔴 Pending | Placeholder only (`/demo`) |
+| Phase I | ✅ Complete | PQC Lab (341 tests); ML-KEM + ML-DSA real ops; benchmark; all UI states |
 | Reports | 🔴 Pending | Placeholder only |

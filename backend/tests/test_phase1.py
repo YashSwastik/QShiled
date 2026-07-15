@@ -224,7 +224,14 @@ def test_stub_endpoints(client):
     r = client.get("/api/recommendations")
     assert r.status_code == 422  # missing required scan_id param
 
-    # Remaining stubs still return 200 with a phase/detail key
-    for path in ["/api/pqc-lab", "/api/reports"]:
-        r = client.get(path)
-        assert r.status_code == 200 and "phase" in r.json()
+    # PQC Lab is now a real implementation (Phase H/PQC Lab).
+    # The root path /api/pqc-lab is not mapped; capabilities is at /api/pqc-lab/capabilities.
+    r = client.get("/api/pqc-lab/capabilities")
+    assert r.status_code == 200
+    data = r.json()
+    assert "kem" in data          # real capabilities response
+    assert "signature" in data
+
+    # Reports remains a stub
+    r = client.get("/api/reports")
+    assert r.status_code == 200 and "phase" in r.json()

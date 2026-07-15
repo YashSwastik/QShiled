@@ -12,7 +12,8 @@ from app.routers import risk as risk_router_module
 from app.routers import recommendations as recommendations_router_module
 from app.routers import roadmap as roadmap_router_module
 from app.routers import dashboard as dashboard_router_module
-from app.routers.stubs import pqc_lab_router, reports_router
+from app.routers import pqc_lab as pqc_lab_router_module
+from app.routers.stubs import reports_router
 
 settings = get_settings()
 
@@ -71,7 +72,7 @@ app.include_router(risk_router_module.router, prefix=API_PREFIX)
 app.include_router(recommendations_router_module.router, prefix=API_PREFIX)
 app.include_router(roadmap_router_module.router, prefix=API_PREFIX)
 app.include_router(dashboard_router_module.router, prefix=API_PREFIX)
-app.include_router(pqc_lab_router, prefix=API_PREFIX)
+app.include_router(pqc_lab_router_module.router, prefix=API_PREFIX)
 app.include_router(reports_router, prefix=API_PREFIX)
 
 

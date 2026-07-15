@@ -281,3 +281,86 @@ PQC demo (Kyber/ML-KEM key exchange demonstration) is a **bonus** feature includ
 ---
 
 *End of Project Context*
+
+---
+
+## 11. PQC Lab Implementation (Verified — Phase H/Part 11)
+
+### Library
+
+| Item | Value |
+|------|-------|
+| Library | `cryptography` (PyCA) |
+| Version | 49.0.0 |
+| Backend | OpenSSL 3.x (via `rust_openssl` bindings) |
+| Runtime | Python 3.14.3 |
+| Platform | Windows 11 (verified) |
+| Install | Already in `requirements.txt` — no additional dependency needed |
+
+### Implemented Algorithms (VERIFIED against cryptography 49.0.0)
+
+#### ML-KEM — FIPS 203 (Key Encapsulation Mechanism)
+
+| Parameter Set | Public Key | Ciphertext | Shared Secret | Security Level |
+|---|---|---|---|---|
+| ML-KEM-768 | 1184 B | 1088 B | 32 B | Level 3 (AES-192) |
+| ML-KEM-1024 | 1568 B | 1568 B | 32 B | Level 5 (AES-256) |
+
+Operations: key generation · encapsulation · decapsulation · shared-secret equality verification
+
+**API note:** `pub_key.encapsulate()` returns `(shared_secret, ciphertext)` — shared_secret is first.
+
+#### ML-DSA — FIPS 204 (Digital Signatures)
+
+| Parameter Set | Public Key | Max Signature | Security Level |
+|---|---|---|---|
+| ML-DSA-44 | 1312 B | 2420 B | Level 2 (AES-128) |
+| ML-DSA-65 | 1952 B | 3309 B | Level 3 (AES-192) |
+| ML-DSA-87 | 2592 B | 4627 B | Level 5 (AES-256) |
+
+Operations: key generation · signing · verification · tampered-message verification failure
+
+#### SLH-DSA — FIPS 205
+
+**NOT available.** `cryptography.hazmat.primitives.asymmetric.slhdsa` does not exist in this build.
+Never fake SLH-DSA support. Show it as explicitly unavailable in the UI.
+
+### Security Properties of the Implementation
+
+- Private keys and shared secrets are **never** returned to API callers
+- Only SHA-256 fingerprint prefixes (first 16 hex chars) are returned for cryptographic objects
+- All operations are ephemeral in-memory — nothing persisted
+- No sensitive material is logged
+
+### Measurements
+
+- All timings measured using `time.perf_counter()` in Python
+- Results are environment-specific (hardware, OS, system load, runtime)
+- Not presented as universal algorithm performance data
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/pqc-lab/capabilities` | GET | Supported algorithms, parameter sets, environment metadata |
+| `/api/pqc-lab/kem/demo` | POST | ML-KEM round-trip (keygen + encap + decap + verify) |
+| `/api/pqc-lab/signature/demo` | POST | ML-DSA sign + verify + optional tamper test |
+| `/api/pqc-lab/benchmark` | POST | Multi-iteration benchmark (5/10/25/50 iterations) |
+
+### Frontend Route
+
+`/demo` — PQC Lab page (`frontend/src/pages/DemoPage.tsx`)
+API client: `frontend/src/services/pqcLabApi.ts`
+
+### Test Results
+
+- Focused PQC Lab tests: **62/62 passing** (`tests/test_pqc_lab.py`)
+- Full backend suite: **341/341 passing**
+- Frontend build: clean, exit 0, 0 TS errors
+
+### Disclaimer
+
+The PQC Lab is a demonstration and evaluation environment.
+Running a demonstration does not automatically migrate a production application.
+Production migration requires protocol, interoperability, key-management, deployment, and security validation.
+QShield does not claim FIPS certification or NIST validation of QShield itself.
