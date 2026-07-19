@@ -554,22 +554,41 @@ def build_inventory_pdf(data: dict) -> bytes:
     story.append(Paragraph("2. Algorithm Inventory by Category", s["h2"]))
     story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT, spaceAfter=6))
 
-    # Group by category
+    # Group by category — maps FindingCategory enum string values to display buckets.
+    # FindingCategory values (from models/finding.py):
+    #   QUANTUM_VULNERABLE_PUBLIC_KEY, SYMMETRIC, HASH, LEGACY_DEPRECATED,
+    #   POST_QUANTUM, UNKNOWN_REVIEW
     CRYPTO_CATEGORIES = {
-        "public_key":    "Public-Key Cryptography",
-        "symmetric":     "Symmetric Cryptography",
-        "hash":          "Hash Functions",
-        "certificate":   "Certificates & PKI",
-        "configuration": "Configuration / Protocol",
-        "other":         "Other / Unknown",
+        "public_key":   "Public-Key Cryptography",
+        "symmetric":    "Symmetric Cryptography",
+        "hash":         "Hash Functions",
+        "post_quantum": "Post-Quantum Cryptography",
+        "legacy":       "Legacy / Deprecated",
+        "other":        "Other / Unknown",
+    }
+    # Enum value → internal bucket key (covers both uppercase enum strings
+    # and any lowercase aliases that may appear in serialised data)
+    _CAT_MAP: dict[str, str] = {
+        "QUANTUM_VULNERABLE_PUBLIC_KEY": "public_key",
+        "SYMMETRIC":                     "symmetric",
+        "HASH":                          "hash",
+        "POST_QUANTUM":                  "post_quantum",
+        "LEGACY_DEPRECATED":             "legacy",
+        "UNKNOWN_REVIEW":                "other",
+        # lowercase / legacy aliases
+        "public_key":   "public_key",
+        "symmetric":    "symmetric",
+        "hash":         "hash",
+        "certificate":  "public_key",
+        "configuration": "other",
+        "other":        "other",
     }
     by_cat: dict[str, list] = {k: [] for k in CRYPTO_CATEGORIES}
     for f in findings:
-        cat = (f.get("category") or "other").lower()
-        bucket = by_cat.get(cat, by_cat["other"])
-        bucket.append(f)
-        if cat not in by_cat:
-            by_cat["other"].append(f)
+        raw_cat = (f.get("category") or "other")
+        bucket = _CAT_MAP.get(raw_cat, _CAT_MAP.get(raw_cat.upper(), "other"))
+        by_cat[bucket].append(f)
+
 
     for cat_key, cat_label in CRYPTO_CATEGORIES.items():
         cat_findings = by_cat.get(cat_key, [])

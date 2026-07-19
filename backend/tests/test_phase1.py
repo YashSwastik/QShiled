@@ -232,6 +232,9 @@ def test_stub_endpoints(client):
     assert "kem" in data          # real capabilities response
     assert "signature" in data
 
-    # Reports remains a stub
+    # Reports is now a real implementation (Part 12 — /api/reports returns scan list metadata).
     r = client.get("/api/reports")
-    assert r.status_code == 200 and "phase" in r.json()
+    assert r.status_code == 200
+    data = r.json()
+    # Real endpoint returns a structured response (not the old stub placeholder)
+    assert "scan_ready" in data or "available_reports" in data or "completed_scans" in data

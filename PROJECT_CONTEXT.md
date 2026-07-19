@@ -1,7 +1,7 @@
 # QShield — Project Context (Source of Truth)
 
-> **Last updated:** 2026-07-16  
-> **Status:** Phase J — Navigation & Product Polish Complete  
+> **Last updated:** 2026-07-19
+> **Status:** Parts 1–13 Complete — Production-Ready Demo
 > This file is the persistent reference for all future coding sessions. Update it as the project evolves.
 
 ---
@@ -149,21 +149,31 @@ QSheild/
 
 | Module | Location | Status |
 |--------|----------|--------|
-| Crypto Scanner (Source Code) | `backend/app/services/scanner/source_scanner.py` | 🔴 Not built |
-| Crypto Scanner (Certificates) | `backend/app/services/scanner/cert_scanner.py` | 🔴 Not built |
-| Crypto Scanner (Config Files) | `backend/app/services/scanner/config_scanner.py` | 🔴 Not built |
-| Risk Analyzer | `backend/app/services/analyzer.py` | 🔴 Not built |
-| NIST Recommender | `backend/app/services/recommender.py` | 🔴 Not built |
-| CBOM Reporter | `backend/app/services/reporter.py` | 🔴 Not built |
-| Scan API Router | `backend/app/routers/scans.py` | 🔴 Not built |
-| Findings API Router | `backend/app/routers/findings.py` | 🔴 Not built |
-| Reports API Router | `backend/app/routers/reports.py` | 🔴 Not built |
-| Dashboard Page | `frontend/src/pages/Dashboard.tsx` | 🔴 Not built |
-| Scan Upload Page | `frontend/src/pages/ScanUpload.tsx` | 🔴 Not built |
-| CBOM Viewer Page | `frontend/src/pages/CBOMViewer.tsx` | 🔴 Not built |
-| Roadmap Page | `frontend/src/pages/Roadmap.tsx` | 🔴 Not built |
-| PQC Demo Page | `frontend/src/pages/PQCDemo.tsx` | 🔴 Not built |
-| Report Export Page | `frontend/src/pages/Reports.tsx` | 🔴 Not built |
+| Crypto Scanner (Source Code) | `backend/app/services/scanner/source_scanner.py` | ✅ Complete |
+| Crypto Scanner (Certificates) | `backend/app/services/scanner/cert_scanner.py` | ✅ Complete |
+| Crypto Scanner (Config Files) | `backend/app/services/scanner/rules.py` | ✅ Complete |
+| Risk Analyzer | `backend/app/services/analyzer.py` | ✅ Complete |
+| NIST Recommender | `backend/app/services/recommender.py` | ✅ Complete |
+| Roadmap Engine | `backend/app/services/roadmap_engine.py` | ✅ Complete |
+| Report Builder (PDF/ZIP) | `backend/app/services/report_builder.py` | ✅ Complete |
+| Scan API Router | `backend/app/routers/scans.py` | ✅ Complete |
+| Findings API Router | `backend/app/routers/findings.py` | ✅ Complete |
+| Risk API Router | `backend/app/routers/risk.py` | ✅ Complete |
+| Recommendations Router | `backend/app/routers/recommendations.py` | ✅ Complete |
+| Roadmap API Router | `backend/app/routers/roadmap.py` | ✅ Complete |
+| Dashboard API Router | `backend/app/routers/dashboard.py` | ✅ Complete |
+| PQC Lab Router | `backend/app/routers/pqc_lab.py` | ✅ Complete |
+| Reports API Router | `backend/app/routers/reports.py` | ✅ Complete |
+| Dashboard Page | `frontend/src/pages/Dashboard.tsx` | ✅ Complete |
+| Crypto Inventory Page | `frontend/src/pages/InventoryPage.tsx` | ✅ Complete |
+| Finding Detail Page | `frontend/src/pages/FindingDetailPage.tsx` | ✅ Complete |
+| Risk Analysis Page | `frontend/src/pages/RiskPage.tsx` | ✅ Complete |
+| Recommendations Page | `frontend/src/pages/RecommendationsPage.tsx` | ✅ Complete |
+| Roadmap Page | `frontend/src/pages/RoadmapPage.tsx` | ✅ Complete |
+| PQC Lab Page | `frontend/src/pages/DemoPage.tsx` | ✅ Complete |
+| Reports Page | `frontend/src/pages/ReportsPage.tsx` | ✅ Complete |
+| Previous Scans Page | `frontend/src/pages/ScansPage.tsx` | ✅ Complete |
+| Scan Upload Page | `frontend/src/pages/UploadPage.tsx` | ✅ Complete |
 
 ---
 
@@ -378,7 +388,7 @@ Usage:
 <AppSidebar activeKey="risk" scanId={scanId} />
 ```
 
-ActiveKey values: `dashboard` | `inventory` | `risk` | `migration` | `roadmap` | `pqclab` | `reports`
+ActiveKey values: `dashboard` | `inventory` | `risk` | `migration` | `roadmap` | `pqclab` | `reports` | `scans`
 
 Behavior:
 - **Desktop expanded**: QShield branding, hamburger toggle, full labeled navigation, active route highlighted

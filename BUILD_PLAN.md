@@ -511,7 +511,8 @@ All the following were verified live against the running backend:
 | Phase H | ✅ Complete | Executive Dashboard (279 tests); Quantum Readiness Score; all UI states |
 | Phase I | ✅ Complete | PQC Lab (341 tests); ML-KEM + ML-DSA real ops; benchmark; all UI states |
 | Phase J | ✅ Complete | Navigation & Product Polish; shared AppSidebar; landing page sections; PQC Lab wording |
-| Reports | 🔴 Pending | Placeholder only |
+| Part 12 | ✅ Complete | Enterprise Reporting; PDF/ZIP export; ReportsPage; 385 tests passing |
+| Part 13 | ✅ Complete | Previous Scans page (/scans); Delete Scan; simplified Navbar; sidebar "Previous Scans" link |
 
 ---
 
@@ -543,11 +544,9 @@ Frontend-only pass with no backend changes. All 341 backend tests continue to pa
 
 #### Navbar (`frontend/src/components/Navbar.tsx`) — REWRITTEN
 
-Simplified landing-page header — removed dead links (Platform, Discovery, etc.):
-- About QShield → smooth-scroll to `#about`
-- Previous Scans → smooth-scroll to `#previous-scans`
-- Open Dashboard → `/dashboard`
-- Start New Scan → `/scan`
+Simplified landing-page header — logo only on desktop. Mobile sheet has Start New Scan + Previous Scans.
+All nav links (About QShield, Previous Scans, Open Dashboard) and the desktop Start New Scan CTA button removed.
+The hero section provides the primary CTA.
 
 #### Landing Page (`frontend/src/pages/LandingPage.tsx`) — REWRITTEN
 
