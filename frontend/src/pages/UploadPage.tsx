@@ -14,19 +14,9 @@ import {
   UploadCloud, FileText, CheckCircle, XCircle, Loader2, ArrowLeft, RefreshCw,
 } from 'lucide-react';
 import QShieldLogo from '../components/QShieldLogo';
-import api from '../services/api';
+import { uploadScan, type ScanResult } from '../services/uploadApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ScanResult {
-  id: string;
-  status: 'completed' | 'failed' | string;
-  file_count: number;
-  finding_count: number;
-  upload_name: string;
-  upload_type: string;
-  error_message: string | null;
-}
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -84,24 +74,12 @@ export default function UploadPage() {
     setScanResult(null);
     setErrorMsg('');
 
-    const formData = new FormData();
-    formData.append('application_id', applicationId);
-    formData.append('file', selectedFile);
-
     try {
-      const res = await api.post<ScanResult>('/api/scans/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (e) => {
-          if (e.total) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        },
-      });
-
-      setScanResult(res.data);
-      setUploadState(res.data.status === 'completed' ? 'success' : 'error');
-      if (res.data.status === 'failed') {
-        setErrorMsg(res.data.error_message ?? 'Processing failed.');
+      const result = await uploadScan(applicationId, selectedFile, setUploadProgress);
+      setScanResult(result);
+      setUploadState(result.status === 'completed' ? 'success' : 'error');
+      if (result.status === 'failed') {
+        setErrorMsg(result.error_message ?? 'Processing failed.');
       }
     } catch (err: unknown) {
       const e = err as { userMessage?: string };

@@ -121,6 +121,7 @@ export default function LandingPage() {
   const [scans, setScans] = useState<ScanOption[]>([]);
   const [scansLoading, setScansLoading] = useState(true);
   const [scansError, setScansError] = useState<string | null>(null);
+  const safeScans = Array.isArray(scans) ? scans : [];
 
   const previousScansRef = useRef<HTMLElement>(null);
 
@@ -133,7 +134,14 @@ export default function LandingPage() {
     setScansLoading(true);
     setScansError(null);
     listDashboardScans()
-      .then(data => setScans(data))
+      .then(data => {
+        if (!Array.isArray(data)) {
+          setScans([]);
+          setScansError('The scan service returned an unexpected response. Please try again.');
+          return;
+        }
+        setScans(data);
+      })
       .catch(e => setScansError(e.message ?? 'Failed to load scans.'))
       .finally(() => setScansLoading(false));
   }
@@ -414,7 +422,7 @@ export default function LandingPage() {
           )}
 
           {/* Empty */}
-          {!scansLoading && !scansError && scans.length === 0 && (
+          {!scansLoading && !scansError && safeScans.length === 0 && (
             <div style={{
               background: BG, border: BORDER, borderRadius: 14, padding: '40px 32px',
               textAlign: 'center',
@@ -440,9 +448,9 @@ export default function LandingPage() {
           )}
 
           {/* Scan list */}
-          {!scansLoading && !scansError && scans.length > 0 && (
+          {!scansLoading && !scansError && safeScans.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {scans.map((scan, i) => (
+              {safeScans.map((scan, i) => (
                 <motion.div
                   key={scan.scan_id}
                   initial={prefersReducedMotion ? undefined : 'hidden'}

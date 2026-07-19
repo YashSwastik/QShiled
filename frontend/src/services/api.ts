@@ -1,13 +1,12 @@
 /**
  * api.ts — centralized Axios API client for QShield frontend.
  *
- * All backend calls go through this client. The base URL is resolved:
- *   - In development: Vite proxies /api → http://localhost:8000
- *   - In production: set VITE_API_BASE_URL env var
+ * All backend calls go through this client. VITE_API_BASE_URL must point to
+ * the deployed QShield backend.
  */
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const api = axios.create({
   baseURL: BASE_URL,

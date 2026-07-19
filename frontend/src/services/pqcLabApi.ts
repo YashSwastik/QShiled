@@ -10,7 +10,7 @@
  * No private keys or shared secrets are returned — only fingerprints.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+import api from './api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -139,25 +139,13 @@ export interface BenchmarkResult {
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const resp = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail ?? `API error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.post<T>(path, body);
+  return response.data;
 }
 
 export async function getCapabilities(): Promise<PQCCapabilities> {
-  const resp = await fetch(`${API_BASE}/api/pqc-lab/capabilities`);
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail ?? `Capabilities error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<PQCCapabilities>('/api/pqc-lab/capabilities');
+  return response.data;
 }
 
 export async function runKEMDemo(paramSet: string): Promise<KEMDemoResult> {

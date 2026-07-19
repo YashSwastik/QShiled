@@ -29,7 +29,10 @@ class Settings(BaseSettings):
     )
 
     # CORS
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = (
+        "https://q-shield-rouge.vercel.app,"
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
 
     # Optional AI layer
     openai_api_key: str = ""

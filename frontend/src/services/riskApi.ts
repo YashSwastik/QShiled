@@ -5,7 +5,7 @@
  * No risk scores are hardcoded in the frontend.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+import api from './api';
 
 // ── Types matching backend schemas/risk.py ────────────────────────────────────
 
@@ -62,10 +62,6 @@ export interface ScanRiskResult {
 // ── API call ──────────────────────────────────────────────────────────────────
 
 export async function getRiskAnalysis(scanId: string): Promise<ScanRiskResult> {
-  const resp = await fetch(`${API_BASE}/api/risk?scan_id=${encodeURIComponent(scanId)}`);
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Risk API error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<ScanRiskResult>('/api/risk', { params: { scan_id: scanId } });
+  return response.data;
 }

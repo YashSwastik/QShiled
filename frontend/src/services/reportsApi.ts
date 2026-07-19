@@ -7,12 +7,9 @@
  *   GET /api/reports/inventory?scan_id=   → JSON preview
  *   GET /api/reports/roadmap?scan_id=     → JSON preview
  *
- * PDF/ZIP downloads are triggered as browser navigations (window.open or anchor).
- *
- * Base URL is inferred from the existing api.ts base.
+ * PDF/ZIP downloads are fetched through the shared client and downloaded locally.
  */
-
-const BASE = 'http://127.0.0.1:8000/api/reports';
+import api from './api';
 
 export interface ReportAvailability {
   scan_id: string | null;
@@ -35,48 +32,56 @@ export interface CompletedScan {
 }
 
 export async function getReportAvailability(scanId?: string): Promise<ReportAvailability> {
-  const url = scanId ? `${BASE}?scan_id=${scanId}` : BASE;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const response = await api.get<ReportAvailability>('/api/reports', {
+    params: scanId ? { scan_id: scanId } : undefined,
+  });
+  return response.data;
 }
 
 export async function getExecutivePreview(scanId: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`${BASE}/executive?scan_id=${scanId}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const response = await api.get<Record<string, unknown>>('/api/reports/executive', {
+    params: { scan_id: scanId },
+  });
+  return response.data;
 }
 
 export async function getInventoryPreview(scanId: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`${BASE}/inventory?scan_id=${scanId}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const response = await api.get<Record<string, unknown>>('/api/reports/inventory', {
+    params: { scan_id: scanId },
+  });
+  return response.data;
 }
 
 export async function getRoadmapPreview(scanId: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`${BASE}/roadmap?scan_id=${scanId}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const response = await api.get<Record<string, unknown>>('/api/reports/roadmap', {
+    params: { scan_id: scanId },
+  });
+  return response.data;
 }
 
-/** Trigger browser download of individual PDF. */
-export function downloadPdf(type: 'executive' | 'inventory' | 'roadmap', scanId: string) {
-  window.open(`${BASE}/${type}/pdf?scan_id=${scanId}`, '_blank');
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
-/** Trigger browser download of ZIP bundle. */
-export function downloadAllReports(scanId: string) {
-  window.open(`${BASE}/all?scan_id=${scanId}`, '_blank');
+/** Fetch and download an individual PDF through the shared API client. */
+export async function downloadPdf(type: 'executive' | 'inventory' | 'roadmap', scanId: string) {
+  const response = await api.get<Blob>(`/api/reports/${type}/pdf`, {
+    params: { scan_id: scanId },
+    responseType: 'blob',
+  });
+  saveBlob(response.data, `${type}-report.pdf`);
+}
+
+/** Fetch and download the report ZIP bundle through the shared API client. */
+export async function downloadAllReports(scanId: string) {
+  const response = await api.get<Blob>('/api/reports/all', {
+    params: { scan_id: scanId },
+    responseType: 'blob',
+  });
+  saveBlob(response.data, 'qshield-reports.zip');
 }

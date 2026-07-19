@@ -5,7 +5,7 @@
  * No migration guidance is hardcoded in the frontend.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+import api from './api';
 
 // ── Types matching backend schemas/recommendation.py ──────────────────────────
 
@@ -66,12 +66,8 @@ export interface ScanRecommendationResult {
 // ── API call ──────────────────────────────────────────────────────────────────
 
 export async function getRecommendations(scanId: string): Promise<ScanRecommendationResult> {
-  const resp = await fetch(
-    `${API_BASE}/api/recommendations?scan_id=${encodeURIComponent(scanId)}`
-  );
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Recommendations API error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<ScanRecommendationResult>('/api/recommendations', {
+    params: { scan_id: scanId },
+  });
+  return response.data;
 }

@@ -7,7 +7,7 @@
  * All values are computed deterministically on the backend from real DB state.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+import api from './api';
 
 // ── Types (mirrors backend Pydantic schemas) ──────────────────────────────────
 
@@ -110,32 +110,15 @@ export interface DashboardSummary {
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 export async function listDashboardScans(): Promise<ScanOption[]> {
-  const resp = await fetch(`${API_BASE}/api/dashboard/scans`);
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Dashboard scans error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<ScanOption[]>('/api/dashboard/scans');
+  return response.data;
 }
 
 export async function getDashboardSummary(scanId: string): Promise<DashboardSummary> {
-  const resp = await fetch(
-    `${API_BASE}/api/dashboard?scan_id=${encodeURIComponent(scanId)}`
-  );
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Dashboard API error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<DashboardSummary>('/api/dashboard', { params: { scan_id: scanId } });
+  return response.data;
 }
 
 export async function deleteScan(scanId: string): Promise<void> {
-  const resp = await fetch(
-    `${API_BASE}/api/scans/${encodeURIComponent(scanId)}`,
-    { method: 'DELETE' }
-  );
-  if (!resp.ok && resp.status !== 204) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Delete scan error ${resp.status}`);
-  }
+  await api.delete(`/api/scans/${scanId}`);
 }

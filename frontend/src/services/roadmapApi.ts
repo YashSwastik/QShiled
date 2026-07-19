@@ -5,7 +5,7 @@
  * Wave assignments, reasons, and recommended actions are never hardcoded here.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+import api from './api';
 
 // ── Types matching backend schemas/roadmap_schema.py ──────────────────────────
 
@@ -72,14 +72,8 @@ export type MigrationStage = typeof MIGRATION_STAGES[number];
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 export async function getRoadmap(scanId: string): Promise<ScanRoadmapResult> {
-  const resp = await fetch(
-    `${API_BASE}/api/roadmap?scan_id=${encodeURIComponent(scanId)}`
-  );
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Roadmap API error ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.get<ScanRoadmapResult>('/api/roadmap', { params: { scan_id: scanId } });
+  return response.data;
 }
 
 export async function updateRoadmapItemStage(
@@ -87,17 +81,9 @@ export async function updateRoadmapItemStage(
   scanId: string,
   stage: string,
 ): Promise<RoadmapItem> {
-  const resp = await fetch(
-    `${API_BASE}/api/roadmap/items/${encodeURIComponent(findingId)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scan_id: scanId, status: stage }),
-    }
-  );
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Stage update failed: ${resp.status}`);
-  }
-  return resp.json();
+  const response = await api.patch<RoadmapItem>(`/api/roadmap/items/${findingId}`, {
+    scan_id: scanId,
+    status: stage,
+  });
+  return response.data;
 }
