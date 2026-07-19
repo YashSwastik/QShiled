@@ -14,11 +14,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock,
   RefreshCw, AlertTriangle, ChevronRight, Shield, Info,
   Upload, Activity, ArrowRight,
 } from 'lucide-react';
-import QShieldLogo from '../components/QShieldLogo';
+import AppSidebar from '../components/AppSidebar';
 import {
   listDashboardScans,
   getDashboardSummary,
@@ -67,59 +66,7 @@ const STAGE_COLOR: Record<string, string> = {
 
 // Stage order is supplied by the backend stage_distribution array.
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-
-function Sidebar({ scanId }: { scanId?: string }) {
-  const navItems = [
-    { key: 'overview',  label: 'Dashboard',        Icon: Home,         to: '/dashboard',                         active: true },
-    { key: 'inventory', label: 'Crypto Inventory', Icon: BookOpen,     to: scanId ? `/inventory/${scanId}` : '/upload' },
-    { key: 'risk',      label: 'Risk Analysis',    Icon: BarChart2,    to: scanId ? `/risk/${scanId}` : '#' },
-    { key: 'migration', label: 'Migration',        Icon: Map,          to: scanId ? `/recommendations/${scanId}` : '#' },
-    { key: 'roadmap',   label: 'Roadmap',          Icon: Clock,        to: scanId ? `/roadmap/${scanId}` : '#' },
-    { key: 'pqclab',    label: 'PQC Lab',          Icon: FlaskConical, to: '/demo' },
-    { key: 'reports',   label: 'Reports',          Icon: FileText,     to: '#' },
-  ];
-  return (
-    <aside style={{
-      width: 220, flexShrink: 0, background: BG_SURF, borderRight: BORDER,
-      display: 'flex', flexDirection: 'column', minHeight: '100vh',
-      position: 'sticky', top: 0, alignSelf: 'flex-start',
-    }}>
-      <div style={{ padding: '18px 20px 16px', borderBottom: BORDER, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <QShieldLogo size={20} color={TEXT} />
-        <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-heading)', color: TEXT, letterSpacing: '-0.01em' }}>
-          QShield
-        </span>
-      </div>
-      <nav style={{ padding: '10px', flex: 1 }}>
-        {navItems.map(({ key, label, Icon, to, active }) => {
-          const disabled = to === '#';
-          return (
-            <Link key={key} to={to} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 12px', borderRadius: 7, marginBottom: 1,
-              fontSize: 13, fontWeight: active ? 600 : 400,
-              color: active ? ACCENT : disabled ? MUTED2 : TEXT,
-              background: active ? `${ACCENT}10` : 'transparent',
-              textDecoration: 'none', opacity: disabled ? 0.5 : 1,
-              cursor: disabled ? 'default' : 'pointer',
-              pointerEvents: disabled ? 'none' : 'auto',
-            }}
-              onMouseEnter={e => { if (!active && !disabled) (e.currentTarget as HTMLElement).style.background = 'rgba(25,40,55,0.04)'; }}
-              onMouseLeave={e => { if (!active && !disabled) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              <span style={{ color: active ? ACCENT : MUTED, flexShrink: 0 }}><Icon size={15} /></span>
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div style={{ padding: '14px 20px', borderTop: BORDER }}>
-        <span style={{ fontSize: 11, color: MUTED2 }}>QShield · Dashboard</span>
-      </div>
-    </aside>
-  );
-}
+// ── Sidebar handled by shared AppSidebar component ───────────────────────────
 
 // ── Readiness Ring (SVG) ──────────────────────────────────────────────────────
 
@@ -280,7 +227,7 @@ export default function DashboardPage() {
   if (!scansLoading && scans.length === 0 && !selectedScanId) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar />
+        <AppSidebar activeKey="dashboard" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <PageHeader
             appName={null} scanId={undefined} scans={[]}
@@ -323,7 +270,7 @@ export default function DashboardPage() {
   if (loading || (scansLoading && !data)) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={selectedScanId} />
+        <AppSidebar activeKey="dashboard" scanId={selectedScanId} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <PageHeader
             appName={null} scanId={selectedScanId} scans={scans}
@@ -372,7 +319,7 @@ export default function DashboardPage() {
   if (error && !data) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={selectedScanId} />
+        <AppSidebar activeKey="dashboard" scanId={selectedScanId} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <PageHeader
             appName={null} scanId={selectedScanId} scans={scans}
@@ -409,7 +356,7 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE, fontFamily: 'var(--font-body)', color: TEXT }}>
       <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-      <Sidebar scanId={selectedScanId} />
+      <AppSidebar activeKey="dashboard" scanId={selectedScanId} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <PageHeader

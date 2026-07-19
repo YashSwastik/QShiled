@@ -14,10 +14,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertTriangle, RefreshCw, CheckCircle, Info, ChevronDown, ChevronUp,
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Shield,
-  ArrowRight, Clock, ChevronRight,
+  ArrowRight, Shield, ChevronRight, Map, BarChart2,
 } from 'lucide-react';
-import QShieldLogo from '../components/QShieldLogo';
+import AppSidebar from '../components/AppSidebar';
 import {
   getRoadmap, updateRoadmapItemStage, MIGRATION_STAGES,
 } from '../services/roadmapApi';
@@ -80,59 +79,7 @@ const EFFORT_CFG: Record<string, { bg: string; text: string; border: string }> =
 };
 const ec = (e: string) => EFFORT_CFG[e] ?? EFFORT_CFG.unknown;
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-
-function Sidebar({ scanId }: { scanId?: string }) {
-  const navItems = [
-    { key: 'overview',  label: 'Dashboard',        Icon: Home,         to: '/dashboard' },
-    { key: 'inventory', label: 'Crypto Inventory',  Icon: BookOpen,     to: scanId ? `/inventory/${scanId}` : '/upload' },
-    { key: 'risk',      label: 'Risk Analysis',     Icon: BarChart2,    to: scanId ? `/risk/${scanId}` : '#' },
-    { key: 'migration', label: 'Migration',         Icon: Map,          to: scanId ? `/recommendations/${scanId}` : '#' },
-    { key: 'roadmap',   label: 'Roadmap',           Icon: Clock,        to: scanId ? `/roadmap/${scanId}` : '#', active: true },
-    { key: 'pqclab',    label: 'PQC Lab',           Icon: FlaskConical, to: '/demo' },
-    { key: 'reports',   label: 'Reports',           Icon: FileText,     to: '#' },
-  ];
-  return (
-    <aside style={{
-      width: 220, flexShrink: 0, background: BG_SURF, borderRight: BORDER,
-      display: 'flex', flexDirection: 'column', minHeight: '100vh',
-      position: 'sticky', top: 0, alignSelf: 'flex-start',
-    }}>
-      <div style={{ padding: '18px 20px 16px', borderBottom: BORDER, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <QShieldLogo size={20} color={TEXT} />
-        <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-heading)', color: TEXT, letterSpacing: '-0.01em' }}>
-          QShield
-        </span>
-      </div>
-      <nav style={{ padding: '10px 10px', flex: 1 }}>
-        {navItems.map(({ key, label, Icon, to, active }) => {
-          const disabled = to === '#';
-          return (
-            <Link key={key} to={to} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 12px', borderRadius: 7, marginBottom: 1,
-              fontSize: 13, fontWeight: active ? 600 : 400,
-              color: active ? ACCENT : disabled ? MUTED2 : TEXT,
-              background: active ? `${ACCENT}10` : 'transparent',
-              textDecoration: 'none', opacity: disabled ? 0.5 : 1,
-              cursor: disabled ? 'default' : 'pointer',
-              pointerEvents: disabled ? 'none' : 'auto',
-            }}
-              onMouseEnter={e => { if (!active && !disabled) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(25,40,55,0.04)'; }}
-              onMouseLeave={e => { if (!active && !disabled) (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; }}
-            >
-              <span style={{ color: active ? ACCENT : MUTED, flexShrink: 0 }}><Icon size={15} /></span>
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div style={{ padding: '14px 20px', borderTop: BORDER }}>
-        <span style={{ fontSize: 11, color: MUTED2 }}>QShield · Roadmap Engine</span>
-      </div>
-    </aside>
-  );
-}
+// ── Sidebar handled by shared AppSidebar ────────────────────────────────────────
 
 // ── Wave Timeline (NOW → NEXT → LATER) ───────────────────────────────────────
 // Horizontal on desktop, stacked on narrow screens.
@@ -750,7 +697,7 @@ export default function RoadmapPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={scanId} />
+        <AppSidebar activeKey="roadmap" scanId={scanId} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
@@ -768,7 +715,7 @@ export default function RoadmapPage() {
   if (error) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={scanId} />
+        <AppSidebar activeKey="roadmap" scanId={scanId} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <div style={{ background: BG_SURF, border: '1px solid #fecaca', borderRadius: 12, padding: 32, maxWidth: 440, textAlign: 'center' }}>
             <AlertTriangle size={32} style={{ color: '#ef4444', margin: '0 auto 12px', display: 'block' }} />
@@ -792,7 +739,7 @@ export default function RoadmapPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE, fontFamily: 'var(--font-body)', color: TEXT }}>
-      <Sidebar scanId={scanId} />
+      <AppSidebar activeKey="roadmap" scanId={scanId} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 

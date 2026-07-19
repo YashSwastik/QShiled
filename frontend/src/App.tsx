@@ -10,6 +10,7 @@ import FindingDetailPage from './pages/FindingDetailPage';
 import RiskPage from './pages/RiskPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import RoadmapPage from './pages/RoadmapPage';
+import ReportsPage from './pages/ReportsPage';
 
 /**
  * App — root router.
@@ -78,6 +79,9 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         {/* Backward-compat alias for /app/dashboard links already in the wild */}
         <Route path="/app/dashboard" element={<Dashboard />} />
+        {/* Reports */}
+        <Route path="/reports" element={<ReportsPage />} />
+
         <Route path="/demo" element={<DemoPage />} />
 
         {/* 404 catch-all */}

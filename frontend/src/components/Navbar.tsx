@@ -1,16 +1,28 @@
+/**
+ * Navbar.tsx — QShield landing-page top navigation.
+ *
+ * Simplified header:
+ *   LEFT:  QShield logo
+ *   NAV:   About QShield | Previous Scans | Open Dashboard
+ *   CTA:   Start New Scan (pill button)
+ *
+ * Mobile: hamburger → slide-in sheet
+ *
+ * All links are real navigations — no dead anchors.
+ */
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import QShieldLogo from './QShieldLogo';
 
-const NAV_LINKS = [
-  { label: 'Platform', href: '#platform' },
-  { label: 'Discovery', href: '#discovery' },
-  { label: 'Migration', href: '#migration' },
-  { label: 'PQC Lab', href: '#pqc-lab' },
-  { label: 'About', href: '#about' },
-];
+const TEXT = 'var(--color-text)';
+const ACCENT = 'var(--color-accent)';
+
+interface NavItem {
+  label: string;
+  action: () => void;
+}
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -18,23 +30,23 @@ export default function Navbar() {
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
-    if (menuOpen) {
-      document.body.classList.add('menu-open');
-    } else {
-      document.body.classList.remove('menu-open');
-    }
+    document.body.classList.toggle('menu-open', menuOpen);
     return () => document.body.classList.remove('menu-open');
   }, [menuOpen]);
 
-  function handleLaunch() {
+  function scrollTo(id: string) {
     setMenuOpen(false);
-    navigate('/dashboard');
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
-  function handleDemo() {
-    setMenuOpen(false);
-    navigate('/demo');
-  }
+  const navLinks: NavItem[] = [
+    { label: 'About QShield', action: () => scrollTo('about') },
+    { label: 'Previous Scans', action: () => scrollTo('previous-scans') },
+    { label: 'Open Dashboard', action: () => { setMenuOpen(false); navigate('/dashboard'); } },
+  ];
 
   return (
     <>
@@ -45,50 +57,43 @@ export default function Navbar() {
           style={{ maxWidth: 1280 }}
         >
           {/* Logo + wordmark */}
-          <Link
-            to="/"
-            className="flex items-center gap-2.5 shrink-0 no-underline"
-            aria-label="QShield home"
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-2.5 shrink-0 cursor-pointer border-0 bg-transparent"
+            aria-label="QShield — scroll to top"
           >
             <QShieldLogo size={28} color="#192837" />
             <span
               className="text-lg tracking-tight select-none"
-              style={{ color: 'var(--color-text)', fontFamily: 'var(--font-heading)' }}
+              style={{ color: TEXT, fontFamily: 'var(--font-heading)' }}
             >
               QShield
             </span>
-          </Link>
+          </button>
 
-          {/* Desktop centre nav links */}
-          <ul className="hidden md:flex items-center gap-8 list-none m-0 p-0">
-            {NAV_LINKS.map((link) => (
+          {/* Desktop nav links */}
+          <ul className="hidden md:flex items-center gap-7 list-none m-0 p-0">
+            {navLinks.map((link) => (
               <li key={link.label}>
-                <a
-                  href={link.href}
-                  className="text-sm font-medium transition-opacity hover:opacity-60 no-underline"
-                  style={{ color: 'var(--color-text)' }}
+                <button
+                  onClick={link.action}
+                  className="text-sm font-medium transition-opacity hover:opacity-60 no-underline border-0 bg-transparent cursor-pointer"
+                  style={{ color: TEXT }}
                 >
                   {link.label}
-                </a>
+                </button>
               </li>
             ))}
           </ul>
 
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Desktop CTA */}
+          <div className="hidden md:flex items-center">
             <button
-              onClick={handleDemo}
-              className="text-sm font-semibold px-5 py-2.5 rounded-full transition-all active:scale-95 cursor-pointer border-0"
-              style={{ background: 'var(--color-login-bg)', color: 'var(--color-text)' }}
-            >
-              View Demo
-            </button>
-            <button
-              onClick={handleLaunch}
+              onClick={() => { setMenuOpen(false); navigate('/scan'); }}
               className="text-sm font-semibold px-5 py-2.5 rounded-full text-white transition-all hover:shadow-lg active:scale-95 cursor-pointer border-0"
-              style={{ background: 'var(--color-accent)' }}
+              style={{ background: ACCENT }}
             >
-              Launch QShield
+              Start New Scan
             </button>
           </div>
 
@@ -100,45 +105,35 @@ export default function Navbar() {
             aria-expanded={menuOpen}
           >
             {menuOpen
-              ? <X size={24} color="var(--color-text)" />
-              : <Menu size={24} color="var(--color-text)" />
+              ? <X size={24} color={TEXT} />
+              : <Menu size={24} color={TEXT} />
             }
           </button>
         </div>
       </nav>
 
-      {/* ── Mobile Menu (AnimatePresence) ────────────────────────────────── */}
+      {/* ── Mobile Menu ────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {menuOpen && (
           <>
             {/* Backdrop */}
             <motion.div
               key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
               className="fixed inset-0 z-20"
-              style={{
-                background: 'rgba(25,40,55,0.35)',
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)',
-              }}
+              style={{ background: 'rgba(25,40,55,0.35)', backdropFilter: 'blur(4px)' }}
               onClick={() => setMenuOpen(false)}
               aria-hidden="true"
             />
-
             {/* Sheet */}
             <motion.aside
               key="sheet"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ duration: 0.45, ease: 'easeOut' }}
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
               className="fixed top-0 right-0 z-30 flex flex-col overflow-y-auto"
               style={{
-                width: 'min(88vw, 360px)',
-                height: '100dvh',
+                width: 'min(88vw, 320px)', height: '100dvh',
                 background: '#CFC8C5',
                 boxShadow: '-12px 0 48px rgba(25,40,55,0.18)',
               }}
@@ -146,93 +141,56 @@ export default function Navbar() {
             >
               {/* Sheet header */}
               <div className="flex items-center justify-between px-6 py-5">
-                <Link
-                  to="/"
-                  className="flex items-center gap-2.5 no-underline"
-                  onClick={() => setMenuOpen(false)}
-                  aria-label="QShield home"
-                >
-                  <QShieldLogo size={26} color="#192837" />
-                  <span
-                    className="text-base tracking-tight"
-                    style={{ color: 'var(--color-text)', fontFamily: 'var(--font-heading)' }}
-                  >
+                <div className="flex items-center gap-2.5">
+                  <QShieldLogo size={22} color="#192837" />
+                  <span className="text-base tracking-tight" style={{ color: TEXT, fontFamily: 'var(--font-heading)' }}>
                     QShield
                   </span>
-                </Link>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
+                </div>
+                <button
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center justify-center rounded-full border-0 cursor-pointer"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    background: 'rgba(25,40,55,0.10)',
-                  }}
+                  style={{ width: 36, height: 36, background: 'rgba(25,40,55,0.10)' }}
                   aria-label="Close menu"
                 >
-                  <X size={20} color="var(--color-text)" />
-                </motion.button>
+                  <X size={18} color={TEXT} />
+                </button>
               </div>
 
-              {/* Divider */}
-              <div
-                className="mx-6"
-                style={{ height: 1, background: 'rgba(25,40,55,0.12)' }}
-              />
+              <div className="mx-6" style={{ height: 1, background: 'rgba(25,40,55,0.12)' }} />
 
-              {/* Nav links — staggered entrance */}
               <nav className="flex flex-col gap-1 px-4 pt-4">
-                {NAV_LINKS.map((link, i) => (
-                  <motion.a
+                {navLinks.map((link, i) => (
+                  <motion.button
                     key={link.label}
-                    href={link.href}
+                    onClick={link.action}
                     initial={{ opacity: 0, x: 24 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      delay: 0.18 + i * 0.07,
-                      duration: 0.4,
-                      ease: 'easeOut',
-                    }}
-                    className="rounded-xl px-4 py-3 no-underline transition-colors hover:bg-black/10"
-                    style={{ color: 'var(--color-text)', fontSize: '1.1rem', fontWeight: 500 }}
-                    onClick={() => setMenuOpen(false)}
+                    transition={{ delay: 0.1 + i * 0.07, duration: 0.35, ease: 'easeOut' }}
+                    className="rounded-xl px-4 py-3 text-left transition-colors hover:bg-black/10 border-0 bg-transparent cursor-pointer"
+                    style={{ color: TEXT, fontSize: '1.1rem', fontWeight: 500 }}
                   >
                     {link.label}
-                  </motion.a>
+                  </motion.button>
                 ))}
               </nav>
 
-              {/* Spacer */}
               <div className="flex-1" />
 
-              {/* Mobile CTAs */}
               <div className="flex flex-col gap-3 px-6 pb-8 pt-4">
                 <button
-                  onClick={handleLaunch}
+                  onClick={() => { setMenuOpen(false); navigate('/scan'); }}
                   className="w-full rounded-full text-white font-semibold border-0 cursor-pointer transition-all active:scale-95"
-                  style={{
-                    background: 'var(--color-accent)',
-                    fontSize: '0.95rem',
-                    paddingTop: '0.875rem',
-                    paddingBottom: '0.875rem',
-                  }}
+                  style={{ background: ACCENT, fontSize: '0.95rem', paddingTop: '0.875rem', paddingBottom: '0.875rem' }}
                 >
-                  Launch QShield
+                  Start New Scan
                 </button>
                 <button
-                  onClick={handleDemo}
+                  onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
                   className="w-full rounded-full font-semibold border-0 cursor-pointer transition-all active:scale-95"
-                  style={{
-                    background: 'var(--color-login-bg)',
-                    color: 'var(--color-text)',
-                    fontSize: '0.95rem',
-                    paddingTop: '0.875rem',
-                    paddingBottom: '0.875rem',
-                  }}
+                  style={{ background: 'var(--color-login-bg)', color: TEXT, fontSize: '0.95rem', paddingTop: '0.875rem', paddingBottom: '0.875rem' }}
                 >
-                  View Demo
+                  Open Dashboard
                 </button>
               </div>
             </motion.aside>

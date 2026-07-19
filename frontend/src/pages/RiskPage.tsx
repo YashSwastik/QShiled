@@ -17,13 +17,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Shield, AlertTriangle, ArrowLeft, Info,
-  ChevronDown, ChevronUp, RefreshCw,
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock,
+  ChevronDown, ChevronUp, RefreshCw, Map, Clock,
   AlertCircle, CheckCircle, HelpCircle, ChevronRight,
 } from 'lucide-react';
 import { getRiskAnalysis } from '../services/riskApi';
 import type { ScanRiskResult, FindingRisk, FactorScore } from '../services/riskApi';
-import QShieldLogo from '../components/QShieldLogo';
+import AppSidebar from '../components/AppSidebar';
 
 // ── Design tokens (matching InventoryPage / FindingBadges) ────────────────────
 
@@ -66,90 +65,6 @@ const FACTOR_WEIGHTS: Record<string, number> = {
   migration_complexity:   0.10,
   compliance_sensitivity: 0.05,
 };
-
-// ── Sidebar nav items ─────────────────────────────────────────────────────────
-
-interface NavItem { label: string; icon: React.ReactNode; to: string; key: string }
-function buildNav(scanId?: string): NavItem[] {
-  return [
-    { key: 'overview',   label: 'Dashboard',       icon: <Home size={15} />,         to: '/dashboard' },
-    { key: 'inventory',  label: 'Crypto Inventory', icon: <BookOpen size={15} />,     to: scanId ? `/inventory/${scanId}` : '/upload' },
-    { key: 'risk',       label: 'Risk Analysis',    icon: <BarChart2 size={15} />,    to: scanId ? `/risk/${scanId}` : '#' },
-    { key: 'migration',  label: 'Migration',        icon: <Map size={15} />,          to: scanId ? `/recommendations/${scanId}` : '#' },
-    { key: 'roadmap',    label: 'Roadmap',          icon: <Clock size={15} />,        to: scanId ? `/roadmap/${scanId}` : '#' },
-    { key: 'pqclab',     label: 'PQC Lab',          icon: <FlaskConical size={15} />, to: '/demo' },
-    { key: 'reports',    label: 'Reports',          icon: <FileText size={15} />,     to: '#' },
-  ];
-}
-
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-
-function Sidebar({ scanId }: { scanId?: string }) {
-  const nav = buildNav(scanId);
-  return (
-    <aside style={{
-      width: 220,
-      flexShrink: 0,
-      background: BG_SURF,
-      borderRight: BORDER,
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '100vh',
-      position: 'sticky',
-      top: 0,
-      alignSelf: 'flex-start',
-    }}>
-      {/* Brand */}
-      <div style={{ padding: '18px 20px 16px', borderBottom: BORDER, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <QShieldLogo size={20} color={TEXT} />
-        <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-heading)', color: TEXT, letterSpacing: '-0.01em' }}>
-          QShield
-        </span>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ padding: '10px 10px', flex: 1 }}>
-        {nav.map(item => {
-          const isActive = item.key === 'risk';
-          const isDisabled = item.to === '#';
-          return (
-            <Link
-              key={item.key}
-              to={item.to}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '7px 12px',
-                borderRadius: 7,
-                marginBottom: 1,
-                fontSize: 13,
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? ACCENT : isDisabled ? MUTED2 : TEXT,
-                background: isActive ? `${ACCENT}10` : 'transparent',
-                textDecoration: 'none',
-                opacity: isDisabled ? 0.5 : 1,
-                cursor: isDisabled ? 'default' : 'pointer',
-                pointerEvents: isDisabled ? 'none' : 'auto',
-                transition: 'background 0.12s',
-              }}
-              onMouseEnter={e => { if (!isActive && !isDisabled) (e.currentTarget as HTMLElement).style.background = 'rgba(25,40,55,0.04)'; }}
-              onMouseLeave={e => { if (!isActive && !isDisabled) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              <span style={{ color: isActive ? ACCENT : MUTED, flexShrink: 0 }}>{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div style={{ padding: '14px 20px', borderTop: BORDER }}>
-        <span style={{ fontSize: 11, color: MUTED2 }}>QShield · Risk Engine v1.0</span>
-      </div>
-    </aside>
-  );
-}
 
 // ── Score badge (inline, no gauge) ────────────────────────────────────────────
 
@@ -625,7 +540,7 @@ export default function RiskPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={scanId} />
+        <AppSidebar activeKey="risk" scanId={scanId} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
@@ -644,7 +559,7 @@ export default function RiskPage() {
   if (error) {
     return (
       <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE }}>
-        <Sidebar scanId={scanId} />
+        <AppSidebar activeKey="risk" scanId={scanId} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <div style={{
             background: BG_SURF, border: '1px solid #fecaca', borderRadius: 12,
@@ -687,7 +602,7 @@ export default function RiskPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: BG_PAGE, fontFamily: 'var(--font-body)', color: TEXT }}>
-      <Sidebar scanId={scanId} />
+      <AppSidebar activeKey="risk" scanId={scanId} />
 
       {/* ── Main content ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

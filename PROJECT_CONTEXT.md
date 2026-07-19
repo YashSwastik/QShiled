@@ -1,7 +1,7 @@
 # QShield — Project Context (Source of Truth)
 
-> **Last updated:** 2026-07-12  
-> **Status:** Phase 0 — Foundation  
+> **Last updated:** 2026-07-16  
+> **Status:** Phase J — Navigation & Product Polish Complete  
 > This file is the persistent reference for all future coding sessions. Update it as the project evolves.
 
 ---
@@ -364,3 +364,42 @@ The PQC Lab is a demonstration and evaluation environment.
 Running a demonstration does not automatically migrate a production application.
 Production migration requires protocol, interoperability, key-management, deployment, and security validation.
 QShield does not claim FIPS certification or NIST validation of QShield itself.
+
+---
+
+## 11. Frontend Navigation Architecture (Phase J)
+
+### Shared Collapsible Sidebar
+
+All application pages use the shared `frontend/src/components/AppSidebar.tsx` component.
+
+Usage:
+```tsx
+<AppSidebar activeKey="risk" scanId={scanId} />
+```
+
+ActiveKey values: `dashboard` | `inventory` | `risk` | `migration` | `roadmap` | `pqclab` | `reports`
+
+Behavior:
+- **Desktop expanded**: QShield branding, hamburger toggle, full labeled navigation, active route highlighted
+- **Desktop collapsed (48px)**: ONLY the hamburger button — no icon-only navigation rail
+- **Mobile**: Overlay/drawer from left — backdrop click and Escape close it
+- **State**: Collapse preference persisted in `localStorage` key `qshield_sidebar_open`
+- **Routing**: Scan-specific links (Inventory, Risk, Migration, Roadmap) carry `scanId`; disabled when no scan available
+- **Global routes**: Dashboard (`/dashboard`) and PQC Lab (`/demo`) always accessible
+
+### Landing Page Architecture
+
+The landing page (`frontend/src/pages/LandingPage.tsx`) does **not** render its own Navbar.
+`App.tsx` wraps the landing route using `WithNav` which overlays `Navbar` over the hero video background.
+
+Landing page sections:
+1. Hero (video bg, grid overlay, vignette)
+2. How QShield Works (6 real workflow steps)
+3. Previous Scans (real data from `/api/dashboard/scans`, loading/empty/error states)
+4. About QShield (product description, disclaimers)
+
+### Local Single-User Access (Current Prototype)
+
+Current prototype uses local single-user project access.
+Production deployment would require authenticated users, workspace isolation, role-based access control, and project-level authorization.

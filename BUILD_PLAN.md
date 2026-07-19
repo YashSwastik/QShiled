@@ -510,4 +510,65 @@ All the following were verified live against the running backend:
 | Phase G | ✅ Complete | Migration Roadmap Engine (253 tests); stage persistence fix; Wave/Lifecycle UI |
 | Phase H | ✅ Complete | Executive Dashboard (279 tests); Quantum Readiness Score; all UI states |
 | Phase I | ✅ Complete | PQC Lab (341 tests); ML-KEM + ML-DSA real ops; benchmark; all UI states |
+| Phase J | ✅ Complete | Navigation & Product Polish; shared AppSidebar; landing page sections; PQC Lab wording |
 | Reports | 🔴 Pending | Placeholder only |
+
+---
+
+## Phase J — Navigation & Product Polish ✅
+
+### Summary
+
+Frontend-only pass with no backend changes. All 341 backend tests continue to pass.
+
+### Changes Made
+
+#### Shared Collapsible Sidebar (`frontend/src/components/AppSidebar.tsx`) — NEW
+
+- Single shared sidebar component replacing duplicated local Sidebar implementations in every app page.
+- Desktop EXPANDED: QShield branding, hamburger toggle, full labeled navigation.
+- Desktop COLLAPSED (48px): **ONLY the hamburger button** — no icon-only rail, no individual nav icons.
+- Main content area expands to fill full width when sidebar is collapsed.
+- Mobile: overlay/drawer behavior with backdrop, Escape-to-close.
+- Collapse state persisted via `localStorage` key `qshield_sidebar_open`.
+- Scan-aware routing: Inventory, Risk, Migration, Roadmap links carry `scanId`; disabled when no scan available.
+- Active route highlighted via `activeKey` prop.
+
+#### Replaced local Sidebar in:
+- `frontend/src/pages/Dashboard.tsx` — `activeKey="dashboard"`
+- `frontend/src/pages/RiskPage.tsx` — `activeKey="risk"`
+- `frontend/src/pages/RecommendationsPage.tsx` — `activeKey="migration"`
+- `frontend/src/pages/RoadmapPage.tsx` — `activeKey="roadmap"`
+- `frontend/src/pages/DemoPage.tsx` — `activeKey="pqclab"`
+
+#### Navbar (`frontend/src/components/Navbar.tsx`) — REWRITTEN
+
+Simplified landing-page header — removed dead links (Platform, Discovery, etc.):
+- About QShield → smooth-scroll to `#about`
+- Previous Scans → smooth-scroll to `#previous-scans`
+- Open Dashboard → `/dashboard`
+- Start New Scan → `/scan`
+
+#### Landing Page (`frontend/src/pages/LandingPage.tsx`) — REWRITTEN
+
+Preserved hero visual identity (video background, grid overlay, vignette, QShield branding).
+
+Added sections:
+1. **Hero** — Discover headline, Start New Scan (primary CTA), View Previous Scans (secondary)
+2. **How QShield Works** — 6 real implemented workflow steps (Discover, Inventory, Assess, Recommend, Plan, Validate)
+3. **Previous Scans** — Real data from `/api/dashboard/scans`; loading/empty/error states; reopen via Dashboard, Inventory, Risk Analysis links
+4. **About QShield** — Accurate product description; purpose-aware migration guidance explanation; technical disclaimers
+
+No fake/hardcoded scans. Smooth-scroll anchor navigation. framer-motion animations (already in project dependencies).
+
+#### PQC Lab SLH-DSA Wording Update (`frontend/src/pages/DemoPage.tsx`)
+
+Updated SLH-DSA unavailability message to:
+> "Unavailable in the current runtime. SLH-DSA is standardized in FIPS 205, but the active cryptographic backend does not currently expose a supported implementation."
+
+### Verification
+
+- **Frontend build:** `npm run build` — ✅ clean, exit 0, 0 TypeScript errors
+- **Backend:** No backend changes — 341/341 tests continue to pass
+- **Build output:** `dist/assets/index-*.js` — 605 kB (minified) / 175 kB gzip
+
