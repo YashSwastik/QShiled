@@ -12,12 +12,12 @@
  * Usage:
  *   <AppSidebar activeKey="risk" scanId={scanId} />
  *
- * activeKey values: dashboard | inventory | risk | migration | roadmap | pqclab | reports
+ * activeKey values: dashboard | inventory | risk | migration | roadmap | pqclab | reports | scans
  */
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock,
+  Home, BookOpen, BarChart2, Map, FlaskConical, FileText, Clock, History,
   Menu, X,
 } from 'lucide-react';
 import QShieldLogo from './QShieldLogo';
@@ -44,6 +44,7 @@ function buildNavItems(scanId?: string) {
     { key: 'roadmap',    label: 'Roadmap',           Icon: Clock,        to: scanId ? `/roadmap/${scanId}` : null, requiresScan: true },
     { key: 'pqclab',     label: 'PQC Lab',           Icon: FlaskConical, to: '/demo' },
     { key: 'reports',    label: 'Reports',           Icon: FileText,     to: '/reports', requiresScan: false },
+    { key: 'scans',      label: 'Previous Scans',    Icon: History,      to: '/scans', requiresScan: false },
   ];
 }
 

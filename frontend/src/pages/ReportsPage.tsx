@@ -15,7 +15,7 @@
  * Route: /reports
  */
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText, Download, RefreshCw, ChevronDown, ChevronRight,
   AlertCircle, CheckCircle, Loader2, Shield, BarChart2,
@@ -620,9 +620,11 @@ function ReportCard({
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlScanId = searchParams.get('scan_id') ?? '';
 
   const [scans, setScans] = useState<CompletedScan[]>([]);
-  const [selectedScanId, setSelectedScanId] = useState<string>('');
+  const [selectedScanId, setSelectedScanId] = useState<string>(urlScanId);
   const [scansLoading, setScansLoading] = useState(true);
   const [scansError, setScansError] = useState<string | null>(null);
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
@@ -643,8 +645,9 @@ export default function ReportsPage() {
       .then(all => {
         const completed = all.filter((s: { status: string }) => s.status === 'completed');
         setScans(completed as CompletedScan[]);
-        if (completed.length > 0 && !selectedScanId) {
-          setSelectedScanId(completed[0].scan_id);
+        // prefer URL param, then first completed
+        if (!selectedScanId && completed.length > 0) {
+          setSelectedScanId(urlScanId || completed[0].scan_id);
         }
       })
       .catch(e => setScansError(e.message || 'Failed to load scans'))

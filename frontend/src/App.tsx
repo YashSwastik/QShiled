@@ -11,6 +11,7 @@ import RiskPage from './pages/RiskPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import RoadmapPage from './pages/RoadmapPage';
 import ReportsPage from './pages/ReportsPage';
+import ScansPage from './pages/ScansPage';
 
 /**
  * App — root router.
@@ -81,6 +82,9 @@ export default function App() {
         <Route path="/app/dashboard" element={<Dashboard />} />
         {/* Reports */}
         <Route path="/reports" element={<ReportsPage />} />
+
+        {/* Previous Scans */}
+        <Route path="/scans" element={<ScansPage />} />
 
         <Route path="/demo" element={<DemoPage />} />
 

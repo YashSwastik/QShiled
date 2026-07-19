@@ -128,3 +128,14 @@ export async function getDashboardSummary(scanId: string): Promise<DashboardSumm
   }
   return resp.json();
 }
+
+export async function deleteScan(scanId: string): Promise<void> {
+  const resp = await fetch(
+    `${API_BASE}/api/scans/${encodeURIComponent(scanId)}`,
+    { method: 'DELETE' }
+  );
+  if (!resp.ok && resp.status !== 204) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Delete scan error ${resp.status}`);
+  }
+}
